@@ -17,6 +17,8 @@ virtual void initManualKeywords()
 	addManualKeyword("if", KEYWORD_ixif);
 	addManualKeyword("insn", KEYWORD_ixinsn);
 	addManualKeyword("known", KEYWORD_ixknown);
+	addManualKeyword("mem_only", KEYWORD_ixmem_only);
+	addManualKeyword("mod", KEYWORD_ixmod);
 	addManualKeyword("modes", KEYWORD_ixmodes);
 	addManualKeyword("notes", KEYWORD_ixnotes);
 	addManualKeyword("r", KEYWORD_ixr);

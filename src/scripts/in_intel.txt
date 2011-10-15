@@ -1,9 +1,29 @@
-#@+leo
-
-#@+node:0::@file C:\Users\User\Documents\code\coreasm\misc\general\in_intel.txt
-#@+body
-#@@language perl
 # Copyright (C) 2011 Willow Schlanger <wschlanger@gmail.com>.
+
+#------------------------------------------------------------------------------------------------------------------------------
+
+# This file (in_intel.txt) defines Intel x86/x64 instruction syntax and semantics. It is suitable for the construction of dis-
+# assemblers and emulators, and other related tools.
+#
+# The following instructions are not implemented:
+#
+#   I have no plans to add the following instructions, as of this writing. This is because the instructions are so new, no one
+#   seems to support them, and I believe they are AMD-only, though I'm not entirely sure. Even NASM doesn't support them.
+#
+#     andn            [Logical And-Not] [This is a BMI instruction]
+#     bextr           [Bit Field Extract] [This is a BMI instruction]
+#     blcfill         [Fill From Lowest Clear Bit] [This is a TBM instruction]
+#     blci            [Isolate Lowest Clear Bit] [This is a TBM instruction]
+#     blcic           [Isolate Lowest Set Bit and Complement] [This is a TBM instruction]
+#     blcmsk          [Mask From Lowest Clear Bit] [This is a TBM instruction]
+#     blcs            [Set Lowest Clear Bit] [This is a TBM instruction]
+#     blsfill         [Fill From Lowest Set Bit] [This is a TBM instruction]
+#     blsi            [Isolate Lowest Set Bit] [This is a TBM instruction]
+#     blsic           [Isolate Lowest Set Bit and Complement] [This is a TBM instruction]
+#     blsmsk          [Mask From Lowest Set Bit] [This is a TBM instruction]
+#     blsr            [Reset Lowest Set Bit] [This is a TBM instruction]
+
+#------------------------------------------------------------------------------------------------------------------------------
 
 # The x86 CPU has 6 modes of operation.
 #
@@ -41,18 +61,29 @@ set modes legacy = (real, protected, vm86, smm);
 # Some instructions are valid in all modes.
 set modes all = (legacy, long);
 
+# Some instructions are valid in all modes except 64-bit mode.
+set modes no64 = (rmode, pmode);
+
+#------------------------------------------------------------------------------------------------------------------------------
+
 groups begin
     group decimal [Decimal Arithmetic Instructions],
         [The decimal arithmetic instructions perform decimal arithmetic on binary coded decimal (BCD) data];
     group arith [Binary Arithmetic Instructions],
         [The binary arithmetic instructions perform basic binary integer computations on integers located in memory and/or the general purpose registers];
+    group logical [Logical Instructions],
+    	[The logical instructions perform basic AND, OR, XOR, and NOT logical operations on byte, word, and doubleword values];
+    group control [Control Transfer Instructions],
+    	[The control transfer instructions provide jump, conditional jump, loop, and call and return operations to control program flow];
 end groups;
+
+#------------------------------------------------------------------------------------------------------------------------------
 
 insn aaa() begin
     group decimal;
     synopsis amd64 [ASCII Adjust After Addition];
     desc amd64 [Create an unpacked BCD number (invalid in 64-bit mode)];
-    valid modes (rmode, pmode);          # invalid opcode in 64-bit mode
+    valid modes (no64);          # invalid opcode in 64-bit mode
     code 37 (void);
     emu begin
         AF = AF || ((AX & 0x000f) unsigned> 0x0009);
@@ -70,7 +101,7 @@ insn aad(B1 arg = 0x0a) begin
     group decimal;
     synopsis amd64 [ASCII Adjust Before Division];
     desc amd64 [Adjust two BCD digits in AL and AH (invalid in 64-bit mode)];
-    valid modes (rmode, pmode);          # invalid opcode in 64-bit mode
+    valid modes (no64);          # invalid opcode in 64-bit mode
     notes [When assembling, the argument to AAD is optional; if missing, a default value of 0x0a is used.]
         [When disassembling, we print e.g. "aad 0x01" for d5 01, but print only "aad" for d5 0a.];
     code d5 (imm);
@@ -98,7 +129,7 @@ insn aam(B1 arg = 0x0a) begin
     group decimal;
     synopsis amd64 [ASCII Adjust After Multiply];
     desc amd64 [Create a pair of unpacked BCD values in AH and AL (invalid in 64-bit mode)];
-    valid modes (rmode, pmode);          # invalid opcode in 64-bit mode
+    valid modes (no64);          # invalid opcode in 64-bit mode
     notes [When assembling, the argument to AAM is optional; if missing, a default value of 0x0a is used.]
         [When disassembling, we print e.g. "aam 0x01" for d4 01, but print only "aam" for d4 0a.];
     code d4 (imm);
@@ -128,7 +159,7 @@ insn aas() begin
     group decimal;
     synopsis amd64 [ASCII Adjust After Subtraction];
     desc amd64 [Create an unpacked BCD number from the contents of the AL register (invalid in 64-bit mode)];
-    valid modes (rmode, pmode);          # invalid opcode in 64-bit mode
+    valid modes (no64);          # invalid opcode in 64-bit mode
     code 3f (void);
     emu begin
         AF = AF || ((AX & 0x000f) unsigned> 0x0009);
@@ -220,7 +251,7 @@ end insn;
 
 insn add(P dest, P src) begin
     group arith;
-	synopsis amd64 [Signed or Unsigned Add];
+    synopsis amd64 [Signed or Unsigned Add];
     desc amd64 [Adds the value in a register or memory location (first operand) and an immediate value or the value in]
         [a register or memory location (second operand), and stores the result in the first operand location];
 	flags lockable;
@@ -249,11 +280,11 @@ end insn;
 
 insn and(P dest, P src) begin
     group logical;
-	synopsis amd64 [Logical AND];
+    synopsis amd64 [Logical AND];
     desc amd64 [Performs a bitwise AND operation on the value in a register or memory location (first operand) and an]
         [immediate value or the value in a register or memory location (second operand), and stores the result]
-		[in the first operand location];
-	flags lockable;
+        [in the first operand location];
+    flags lockable;
     valid modes (all);
     code 80 /4 (reg/mem,imm) <P=B1>;
     code 82 /4 (reg/mem,imm) <P=B1, asm_skip>;    # asm_skip means, when assembling, don't encode this form -- it's an alias we want to avoid
@@ -277,6 +308,14 @@ insn and(P dest, P src) begin
     verified emu [];
 end insn;
 
-#@-body
-#@-node:0::@file C:\Users\User\Documents\code\coreasm\misc\general\in_intel.txt
-#@-leo
+insn bound(P x, P y) begin
+    group control;
+    synopsis amd64 [Checks whether an array index (first operand) is within the bounds of an array (second operand).]
+    	[The array index is a signed integer in the specified register];
+    valid modes (no64);          # invalid opcode in 64-bit mode
+    code 62 /r /mod:mem_only (mem&mem) <P=osz>;
+    emu begin
+        except_assert((x unsigned>= low(y)) && (x unsigned<= high(y)), 0x05);     # BOUND range-exceeded exception is 0x05
+    end emu;
+    verified emu [];
+end insn;

@@ -1,7 +1,3 @@
-//@+leo
-
-//@+node:0::@file C:\Users\User\Documents\code\coreasm\misc\general\grammar.c
-//@+body
 // Copyright (C) 2009,2011 Willow Schlanger
 
 copyright "Copyright (C) 2009,2011 Willow Schlanger" ;
@@ -35,8 +31,11 @@ ascii ::= IDENT | LITNUM ;
 //   1
 //   imm
 //   rAX
+//   mem&mem
 //   and other argument types
-argtype ::= ascii { '/' ascii } ;
+argtype ::= argbase [ '&' argbase ] ;
+
+argbase ::= ascii { '/' ascii } ;
 
 remarks ::= SQUARE { SQUARE } ;
 
@@ -97,7 +96,7 @@ dis_stmt
 
 machine_code
 ::=	ascii { ascii }
-	[ '/' slash_code ]
+	{ '/' slash_code }
 	'(' machine_arg_list ')'
 	[ '<' machine_extra_list '>' ]
 ;
@@ -105,6 +104,11 @@ machine_code
 slash_code
 ::= LITNUM
 |   "r"
+|	"mod" ':' mod_code
+;
+
+mod_code
+::= "mem_only"
 ;
 
 machine_arg_list
@@ -188,6 +192,3 @@ binary_op
 |	"unsigned" ">>"
 |	"signed" ">>"
 ;
-//@-body
-//@-node:0::@file C:\Users\User\Documents\code\coreasm\misc\general\grammar.c
-//@-leo
