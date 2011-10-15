@@ -1,0 +1,86 @@
+# cgram.txt
+# Copyright (C) 2009 Willow Schlanger
+
+start ::= declaration-seq ;
+
+declaration-seq ::= declaration { declaration } ;
+
+declaration
+::=	"insn" prototype '{' [ body ] '}'
+|	prototype-type prototype ';'
+|	"extern" prototype-type IDENT { ',' IDENT } ';'
+;
+
+prototype-type
+::=	IDENT [ '*' NUM ]
+;
+
+prototype
+::=	IDENT '(' [ args ] ')'
+;
+
+args
+::= arg { ',' arg }
+;
+
+arg
+::=	IDENT [ '*' NUM ] IDENT
+;
+
+# Note: empty statements like this are not allowed:
+#   insn foo() { ; }
+# This is allowed however:
+#    insn foo() { }
+body
+::= statement ';' { statement ';' }
+;
+
+statement
+::= { prefix } simple-statement
+;
+
+simple-statement
+::=	IDENT [ '*' NUM ] IDENT			# no prefix allowed
+|	IDENT [ '*' NUM ] IDENT '=' rhs		# no prefix allowed
+|	IDENT '=' rhs
+|	"assert" '(' rhs ')'
+|	"push" '(' rhs ')'
+|	"pop" '(' rhs ')'
+|	"discard" '(' rhs ')'
+|	"outport" '(' rhs ',' rhs ')'
+|	"inport" '(' rhs ',' rhs ')'
+|	"commit" '(' rhs ')'			# un-discard
+|	"reserve" '(' rhs ')'			# rhs must be a NUM
+|	"restore" '(' rhs ')'			# rhs must be a NUM
+;
+
+prefix
+::=	"o16" ':'
+|	"o32" ':'
+|	"o64" ':'
+|	"a16" ':'
+|	"a32" ':'
+|	"a64" ':'
+;
+
+rhs
+::=	IDENT [ rhs-args ]
+|	"sx" '<' rhs-size '>' '(' rhs ')'
+|	"zx" '<' rhs-size '>' '(' rhs ')'
+|	"tr" '<' rhs-size '>' '(' rhs ')'
+# sizeof returns a B8. the rhs-size in sizeof must have a scalar of 1.
+|	"sizeof" '(' rhs-size ')'
+|	NUM
+;
+
+rhs-args
+::=	'(' [ list ] ')'
+;
+
+rhs-size
+::=	IDENT [ '*' NUM ]
+;
+
+list
+::=	rhs { ',' rhs }
+;

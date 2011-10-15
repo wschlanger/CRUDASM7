@@ -1,0 +1,22 @@
+// Copyright (C) 2009 Willow Schlanger
+keywords["a16"] = KEYWORD_A16;
+keywords["a32"] = KEYWORD_A32;
+keywords["a64"] = KEYWORD_A64;
+keywords["assert"] = KEYWORD_ASSERT;
+keywords["commit"] = KEYWORD_COMMIT;
+keywords["discard"] = KEYWORD_DISCARD;
+keywords["extern"] = KEYWORD_EXTERN;
+keywords["inport"] = KEYWORD_INPORT;
+keywords["insn"] = KEYWORD_INSN;
+keywords["o16"] = KEYWORD_O16;
+keywords["o32"] = KEYWORD_O32;
+keywords["o64"] = KEYWORD_O64;
+keywords["outport"] = KEYWORD_OUTPORT;
+keywords["pop"] = KEYWORD_POP;
+keywords["push"] = KEYWORD_PUSH;
+keywords["reserve"] = KEYWORD_RESERVE;
+keywords["restore"] = KEYWORD_RESTORE;
+keywords["sizeof"] = KEYWORD_SIZEOF;
+keywords["sx"] = KEYWORD_SX;
+keywords["tr"] = KEYWORD_TR;
+keywords["zx"] = KEYWORD_ZX;

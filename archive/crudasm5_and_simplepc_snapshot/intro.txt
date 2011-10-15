@@ -1,0 +1,48 @@
+Copyright (C) 2008-2011 Willow Schlanger.
+Contact: wschlanger@gmail.com
+Date: June 30, 2011
+
+Q: What is this?
+A: An experimental snapshot of code, saved here for anyone interested.
+It contains two projects: simplepc and crudasm5.
+
+Q: What's the point?
+A: This is here in case you want to learn some things, not because it fulfills any particular purpose or
+because I think it will be useful to anyone. Everything in this release is under the New BSD license.
+
+Q: What is simplepc?
+A: simplepc is a PC emulator I developed to run FreeDOS or other 16-bit operating systems such as MS-DOS.
+
+It automatically halts the simulation when the command prompt is displayed.
+It also logs every instruction that it emulates, for possible later analysis. By "log" I mean any
+registers that get changed have their new value logged, and also any memory writes are logged. This
+makes it possible to replay a scenario such as the boot of an operating system.
+
+It is NOT interactive, although it can be made interactive without too much trouble; if this is done,
+you will want to turn off the logging of each instruction that executes.
+It does not emulate a whole PC, just enough I/O ports to get DOS to boot and also enough BIOS functions
+to get DOS to boot. I have not tested any "real" DOS programs running in it; if you need to run a DOS
+program I recommend DOSBox or QEMU with a "true" DOS of some sort.
+
+To build simplepc go to the simplepc/ncc directory and execute the following command:
+g++ -m32 -o boot3 simple_pc.cpp out_metadata.cpp ../x86s/x86s_common.cpp ../x86s/decode.cpp ../crudasm/asmwriter.cpp
+./boot3 will then run the PC emulator, but you will want to copy boot.img from the parent directory before running it.
+The simplepc executable, i.e. ./boot3, requires "boot.img" to be in the current directory when it is run.
+
+Some background information: simplepc uses the crudasm2 engine, which is very old (see below for information on
+crudasm5, the latest version as of this writing).
+
+Q: What is crudasm5?
+A: The successor to crudasm3! (crudasm4 was never released).
+So what is crudasm anyway? It stands for "crude disassembler." It's a disassembler engine and machine code toolkit.
+It contains a script, located at crudasm5/intel/makexml/in_intel.c (which is not a C source file, I simply use that
+extension because I needed to run it through gcc -E, the C preprocessor). This script defines x86-32 & x86-64 Intel
+machine code syntax, disassembler notation, and instruction semantics (which means "what does the instruction do?")
+This comes in handy for reverse engineering, decompiling, disassembling, debugging, profiling, and/or emulating PC
+instrucitons.
+
+crudasm5 can be used to disassemble 32bit and 64bit Windows EXE/DLL programs out of the box (after you build it).
+However, its engine is very powerful. It is script driven, and in fact the script gets converted to an XML file
+(see here: crudasm5/intel/makexml/intel.xml) which is read at run-time using the Qt toolkit (which is a project
+dependency at present). The user can then decode code into an intermediate representation, and then disassemble
+the IR into NASM-like syntax if required.

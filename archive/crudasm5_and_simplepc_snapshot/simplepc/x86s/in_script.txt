@@ -1,0 +1,1291 @@
+# in_script.txt
+# Copyright (C) 2008 Willow Schlanger
+
+# If ever o16/o32/o64 is necessary, make it a _ insn and print it manually.
+# Note: we may want to remove semantics from this file as it is not used.
+
+# --- begin new instructions ---
+
+$ _cmovcc ! size_same
+	write("cmov");
+	write_cc(argvalue(2));
+	space();
+	write_arg(0);
+	comma();
+	write_arg(1);
+: 0f 40 /r reg_r:osz,mem_rm:osz,imm_cc:8
+	asgn(arg(0), quest(_x86_cc(arg(2)), arg(1), arg(0)));
+
+$ emms
+: 0f 77 void
+
+$ ldmxcsr ! size_none
+: 0f ae /2 mem_rm:32 ! mod_mem
+
+# Table format depends on whether rex.w is used or not.
+$ fxrstor ! size_none
+: 0f ae /1 mem_rm:512b ! mod_mem
+
+# Table format depends on whether rex.w is used or not.
+$ fxsave ! size_none
+: 0f ae /0 mem_rm:512b ! mod_mem
+
+$ fxtract
+: d9 f4 void
+
+# --- end new instructions ---
+
+# Intel docs say to use /0, but /1../7 seem to work the same.
+$ _setcc ! size_none
+	write("set");
+	write_cc(argvalue(1));
+	space();
+	write_arg(0);
+: 0f 90 /z mem_rm:8,imm_cc:8
+	asgn(arg(0), zx$byte(_x86_cc(arg(1))));
+
+# nasm-style syntax. valid in 64-bit mode? assuming yes.
+$ _nopmb
+	write("nop");
+	space();
+	write_args();
+: 0f 1f /0 mem_rm:osz
+	asgn(void);		// is implemented - just no-op.
+
+# valid in 64-bit mode? assuming yes.
+$ _usalc
+	write("salc");
+: d6 void
+
+# valid in 64-bit mode? assuming yes.
+$ _uint1
+	write("int1");
+	space();
+: f1 void
+
+$ _aad ! size_none
+	if((U1)get_imm64() == 0x0a)
+		write("aad");
+	else
+	{
+		write("aad");
+		space();
+		write_args();
+	}
+: d5 imm_imm:8 ! o_no64
+
+$ _aam ! size_none
+	if((U1)get_imm64() == 0x0a)
+		write("aam");
+	else
+	{
+		write("aam");
+		space();
+		write_args();
+	}
+: d4 imm_imm:8 ! o_no64
+
+$ das
+: 2f void ! o_no64
+
+$ daa
+: 27 void ! o_no64
+
+$ aaa
+: 37 void ! o_no64
+
+$ aas
+: 3f void ! o_no64
+
+$ _sxacc		# (r/e)ax <- sx((r/e)ax.lo)
+	if(get_osz() == argsize_16)
+		write("cbw");
+	else
+	if(get_osz() == argsize_32)
+		write("cwde");
+	else
+		write("cdqe");
+: 98 void
+	asgn(x86_acc, sx$osz(x86_acc_lo));
+
+$ _sxdax		# (r/e)dx:(r/e)ax <- sx((r/e)ax)
+	if(get_osz() == argsize_16)
+		write("cwd");
+	else
+	if(get_osz() == argsize_32)
+		write("cdq");
+	else
+		write("cqo");
+	return true;
+: 99 void
+	asgn(x86_dax, sx$osz_times_2(x86_acc));
+
+# According to Wikipedia, some older Intel processors do not support sahf/lahf in 64-bit mode.
+$ sahf
+: 9e void
+
+# According to Wikipedia, some older Intel processors do not support sahf/lahf in 64-bit mode.
+$ lahf
+: 9f void
+
+$ cmc
+: f5 void
+	asgn(x86_cf, not(x86_cf));
+
+$ clc
+: f8 void
+	asgn(x86_cf, 0);
+
+$ stc
+: f9 void
+	asgn(x86_cf, 1);
+
+$ cld
+: fc void
+	asgn(x86_df, 0);
+
+$ std
+: fd void
+	asgn(x86_cf, 1);
+
+# disasm to e.g. lea eax,[<size> bx+si]
+# -- should this be a special insn?
+$ lea ! size_none
+: 8d /r reg_r:osz,mem_rm:asz ! mod_mem,ea_itself
+	asgn(arg(0), arg(1));
+
+$ bound ! size_none
+: 62 /r reg_r:osz,mem_rm:osz.osz ! mod_mem,o_no64
+
+$ into
+: ce void ! o_no64
+
+# --- begin imul opcodes ---
+
+# _cmul is officially signed but it can be used for unsigned too. destination operand has same size
+# as source operands. _cmul is known as 'imul' in intel docs.
+
+$ _cmul3 ! size_same
+	write("imul");
+	space();
+	write_args();
+: 69 /r reg_r:osz,mem_rm:osz,imm_imm:osz
+: 6b /r reg_r:osz,mem_rm:osz,imm_imm:osz ! sx_yes
+	asgn(arg(0), cmul(arg(1), arg(2)));
+	asgn(x86_sf, undefined);
+	asgn(x86_zf, undefined);
+	asgn(x86_af, undefined);
+	asgn(x86_pf, undefined);
+	asgn(x86_cf, smul_overflow(arg(1), arg(2)));
+	asgn(x86_of, smul_overflow(arg(1), arg(2)));
+
+$ _cmul2 ! size_same
+	write("imul");
+	space();
+	write_args();
+: 0f af /r reg_r:osz,mem_rm:osz
+	asgn(arg(0), cmul(arg(0), arg(1)));
+	asgn(x86_sf, undefined);
+	asgn(x86_zf, undefined);
+	asgn(x86_af, undefined);
+	asgn(x86_pf, undefined);
+	asgn(x86_cf, smul_overflow(arg(0), arg(1)));
+	asgn(x86_of, smul_overflow(arg(0), arg(1)));
+
+$ _imulb
+	write("imul");
+	space();
+	write_args();
+: f6 /5 mem_rm:8
+	asgn(x86_ax, smul$word(x86_al, arg(0)));
+	asgn(x86_sf, undefined);
+	asgn(x86_zf, undefined);
+	asgn(x86_af, undefined);
+	asgn(x86_pf, undefined);
+	asgn(x86_cf, smul_overflow(x86_al, arg(0)));
+	asgn(x86_of, smul_overflow(x86_al, arg(0)));
+
+$ imul
+: f7 /5 mem_rm:osz
+	asgn(x86_dax, smul$osz_times_2(x86_acc, arg(0)));
+	asgn(x86_sf, undefined);
+	asgn(x86_zf, undefined);
+	asgn(x86_af, undefined);
+	asgn(x86_pf, undefined);
+	asgn(x86_cf, smul_overflow(x86_acc, arg(0)));
+	asgn(x86_of, smul_overflow(x86_acc, arg(0)));
+
+# --- end imul opcodes ---
+
+$ _mulb
+	write("mul");
+	space();
+	write_args();
+: f6 /4 mem_rm:8
+	asgn(x86_ax, umul$word(x86_al, arg(0)));
+	asgn(x86_sf, undefined);
+	asgn(x86_zf, undefined);
+	asgn(x86_af, undefined);
+	asgn(x86_pf, undefined);
+	asgn(x86_cf, umul_overflow(x86_al, arg(0)));
+	asgn(x86_of, umul_overflow(x86_al, arg(0)));
+
+$ mul
+: f7 /4 mem_rm:osz
+	asgn(x86_dax, umul$osz_times_2(x86_acc, arg(0)));
+	asgn(x86_sf, undefined);
+	asgn(x86_zf, undefined);
+	asgn(x86_af, undefined);
+	asgn(x86_pf, undefined);
+	asgn(x86_cf, umul_overflow(x86_acc, arg(0)));
+	asgn(x86_of, umul_overflow(x86_acc, arg(0)));
+
+# bugfix 12/26/2008 (forgot flag outputs)
+$ _divb
+	write("div");
+	space();
+	write_args();
+: f6 /6 mem_rm:8
+	asgn(tmp(q), udiv$byte(x86_ax, arg(0)));
+	asgn(tmp(r), umod$byte(x86_ax, arg(0)));
+	asgn(x86_al, tmp(q));
+	asgn(x86_ah, tmp(r));
+	asgn(x86_of, undefined);
+	asgn(x86_sf, undefined);
+	asgn(x86_zf, undefined);
+	asgn(x86_af, undefined);
+	asgn(x86_pf, undefined);
+	asgn(x86_cf, undefined);
+
+# bugfix 12/26/2008 (was using ax)
+$ div
+: f7 /6 mem_rm:osz
+	asgn(tmp(q), udiv$osz(x86_dax, arg(0)));
+	asgn(tmp(r), umod$osz(x86_dax, arg(0)));
+	asgn(x86_acc, tmp(q));
+	asgn(x86_dat, tmp(r));
+	asgn(x86_of, undefined);
+	asgn(x86_sf, undefined);
+	asgn(x86_zf, undefined);
+	asgn(x86_af, undefined);
+	asgn(x86_pf, undefined);
+	asgn(x86_cf, undefined);
+
+$ _idivb
+	write("idiv");
+	space();
+	write_args();
+: f6 /7 mem_rm:8
+	asgn(tmp(q), sdiv$byte(x86_ax, arg(0)));
+	asgn(tmp(r), smod$byte(x86_ax, arg(0)));
+	asgn(x86_al, tmp(q));
+	asgn(x86_ah, tmp(r));
+	asgn(x86_of, undefined);
+	asgn(x86_sf, undefined);
+	asgn(x86_zf, undefined);
+	asgn(x86_af, undefined);
+	asgn(x86_pf, undefined);
+	asgn(x86_cf, undefined);
+
+$ idiv
+: f7 /7 mem_rm:osz
+	asgn(tmp(q), sdiv$osz(x86_dax, arg(0)));
+	asgn(tmp(r), smod$osz(x86_dax, arg(0)));
+	asgn(x86_acc, tmp(q));
+	asgn(x86_dat, tmp(r));
+	asgn(x86_of, undefined);
+	asgn(x86_sf, undefined);
+	asgn(x86_zf, undefined);
+	asgn(x86_af, undefined);
+	asgn(x86_pf, undefined);
+	asgn(x86_cf, undefined);
+
+# note: order of arguments is arbitrary.
+$ test ! size_same
+: 84 /r mem_rm:8,reg_r:8
+: 85 /r mem_rm:osz,reg_r:osz
+: a8 reg_r:8:0,imm_imm:8
+: a9 reg_r:osz:0,imm_imm:osz_old
+: f6 /0 mem_rm:8,imm_imm:8
+: f7 /0 mem_rm:osz,imm_imm:osz_old
+: f6 /1 mem_rm:8,imm_imm:8 ! xasm_skip
+: f7 /1 mem_rm:osz,imm_imm:osz_old ! xasm_skip
+	asgn(x86_of, 0);
+	asgn(x86_af, undefined);
+	asgn(x86_cf, 0);
+	asgn(tmp(result), bitand(arg(0), arg(1)));
+	asgn(x86_sf, sign(tmp(result)));
+	asgn(x86_zf, is_zero(tmp(result)));
+	asgn(x86_pf, _x86_parity(trunc$byte(tmp(result))));
+
+# note: order of arguments is arbitrary. but, our code requires rm be first so we can allow lock.
+# This is _xchg not _xchg because when disassembling, check to see if basecode is 0x90 and print
+# nop if so -- if rex does not make the other argument r8.
+# Also because the order of arguments is arbitrary, some disassemblers may flip the
+# arguments over what we have here.
+$ _xchg ! size_same
+	if(basecode() == 0x90 && argvalue(1) == 0)
+		write("nop");
+	else
+	{
+		write("xchg");
+		space();
+		write_args();
+	}
+: 86 /r mem_rm:8,reg_r:8 ! fx_locked
+: 87 /r mem_rm:osz,reg_r:osz ! fx_locked
+: 90 reg_r:osz:0,reg_basecode:osz
+	asgn(tmp(x), arg(0));
+	asgn(arg(0), arg(1));
+	asgn(arg(1), tmp(x));
+
+$ mov ! size_same
+: 88 /r mem_rm:8,reg_r:8
+: 8a /r reg_r:8,mem_rm:8
+: 89 /r mem_rm:osz,reg_r:osz
+: 8b /r reg_r:osz,mem_rm:osz
+: a0 reg_r:8:0,mem_disp:8
+: a2 mem_disp:8,reg_r:8:0
+: a1 reg_r:osz:0,mem_disp:osz
+: a3 mem_disp:osz,reg_r:osz:0
+: b0 reg_basecode:8,imm_imm:8
+: b8 reg_basecode:osz,imm_imm:osz
+# Note: reportedly, on the 486, /1../7 are the same as /0 for c6. Not on my cpu, however.
+: c6 /0 mem_rm:8,imm_imm:8
+: c7 /0 mem_rm:osz_old,imm_imm:osz_old
+	asgn(arg(0), arg(1));
+
+$ not
+: f6 /2 mem_rm:8 ! fx_lockable
+: f7 /2 mem_rm:osz ! fx_lockable
+	asgn(arg(0), bitnot(arg(0)));
+
+$ neg
+: f6 /3 mem_rm:8 ! fx_lockable
+: f7 /3 mem_rm:osz ! fx_lockable
+	asgn(x86_of, _x86_sub_of(0, arg(0)));
+	asgn(x86_af, _x86_sub_af(0, trunc$byte(arg(0))));
+	asgn(x86_cf, _x86_sub_cf(0, arg(0)));
+	asgn(arg(0), neg(arg(0)));
+	asgn(x86_sf, sign(arg(0)));
+	asgn(x86_zf, is_zero(arg(0)));
+	asgn(x86_pf, _x86_parity(trunc$byte(arg(0))));
+
+# -- begin arithmatic opcodes ---
+
+$ add ! size_same
+: 80 /0 mem_rm:8,imm_imm:8 ! fx_lockable
+: 82 /0 mem_rm:8,imm_imm:8 ! fx_lockable,xasm_skip
+: 81 /0 mem_rm:osz,imm_imm:osz_old ! fx_lockable
+: 83 /0 mem_rm:osz,imm_imm:osz_old ! fx_lockable,sx_yes
+: 0 /r mem_rm:8,reg_r:8 ! fx_lockable
+: 2 /r reg_r:8,mem_rm:8 ! fx_lockable
+: 1 /r mem_rm:osz,reg_r:osz ! fx_lockable
+: 3 /r reg_r:osz,mem_rm:osz ! fx_lockable
+: 4 reg_r:8:0,imm_imm:8
+: 5 reg_r:osz:0,imm_imm:osz_old
+	asgn(x86_of, _x86_add_of(arg(0), arg(1)));
+	asgn(x86_af, _x86_add_af(trunc$byte(arg(0)), trunc$byte(arg(1))));
+	asgn(x86_cf, _x86_add_cf(arg(0), arg(1)));
+	asgn(arg(0), add(arg(0), arg(1)));
+	asgn(x86_sf, sign(arg(0)));
+	asgn(x86_zf, is_zero(arg(0)));
+	asgn(x86_pf, _x86_parity(trunc$byte(arg(0))));
+
+$ or ! size_same
+: 80 /1 mem_rm:8,imm_imm:8 ! fx_lockable
+: 82 /1 mem_rm:8,imm_imm:8 ! fx_lockable,xasm_skip
+: 81 /1 mem_rm:osz,imm_imm:osz_old ! fx_lockable
+: 83 /1 mem_rm:osz,imm_imm:osz_old ! fx_lockable,sx_yes
+: 8 /r mem_rm:8,reg_r:8 ! fx_lockable
+: a /r reg_r:8,mem_rm:8 ! fx_lockable
+: 9 /r mem_rm:osz,reg_r:osz ! fx_lockable
+: b /r reg_r:osz,mem_rm:osz ! fx_lockable
+: c reg_r:8:0,imm_imm:8
+: d reg_r:osz:0,imm_imm:osz_old
+	asgn(x86_of, 0);
+	asgn(x86_af, undefined);
+	asgn(x86_cf, 0);
+	asgn(arg(0), bitor(arg(0), arg(1)));
+	asgn(x86_sf, sign(arg(0)));
+	asgn(x86_zf, is_zero(arg(0)));
+	asgn(x86_pf, _x86_parity(trunc$byte(arg(0))));
+
+$ adc ! size_same
+: 80 /2 mem_rm:8,imm_imm:8 ! fx_lockable
+: 82 /2 mem_rm:8,imm_imm:8 ! fx_lockable,xasm_skip
+: 81 /2 mem_rm:osz,imm_imm:osz_old ! fx_lockable
+: 83 /2 mem_rm:osz,imm_imm:osz_old ! fx_lockable,sx_yes
+: 10 /r mem_rm:8,reg_r:8 ! fx_lockable
+: 12 /r reg_r:8,mem_rm:8 ! fx_lockable
+: 11 /r mem_rm:osz,reg_r:osz ! fx_lockable
+: 13 /r reg_r:osz,mem_rm:osz ! fx_lockable
+: 14 reg_r:8:0,imm_imm:8
+: 15 reg_r:osz:0,imm_imm:osz_old
+	asgn(tmp(old_cf), x86_cf);
+	asgn(x86_of, _x86_adc_of(arg(0), arg(1)), x86_cf);
+	asgn(x86_af, _x86_adc_af(trunc$byte(arg(0)), trunc$byte(arg(1))), x86_cf);
+	asgn(x86_cf, _x86_adc_cf(arg(0), arg(1)), x86_cf);
+	asgn(arg(0), add(add(arg(0), arg(1)), zx$argsize_0(tmp(old_cf))));
+	asgn(x86_sf, sign(arg(0)));
+	asgn(x86_zf, is_zero(arg(0)));
+	asgn(x86_pf, _x86_parity(trunc$byte(arg(0))));
+
+$ sbb ! size_same
+: 80 /3 mem_rm:8,imm_imm:8 ! fx_lockable
+: 82 /3 mem_rm:8,imm_imm:8 ! fx_lockable,xasm_skip
+: 81 /3 mem_rm:osz,imm_imm:osz_old ! fx_lockable
+: 83 /3 mem_rm:osz,imm_imm:osz_old ! fx_lockable,sx_yes
+: 18 /r mem_rm:8,reg_r:8 ! fx_lockable
+: 1a /r reg_r:8,mem_rm:8 ! fx_lockable
+: 19 /r mem_rm:osz,reg_r:osz ! fx_lockable
+: 1b /r reg_r:osz,mem_rm:osz ! fx_lockable
+: 1c reg_r:8:0,imm_imm:8
+: 1d reg_r:osz:0,imm_imm:osz_old
+	asgn(tmp(old_cf), x86_cf);
+	asgn(x86_of, _x86_sbb_of(arg(0), arg(1)), x86_cf);
+	asgn(x86_af, _x86_sbb_af(trunc$byte(arg(0)), trunc$byte(arg(1))), x86_cf);
+	asgn(x86_cf, _x86_sbb_cf(arg(0), arg(1)), x86_cf);
+	asgn(arg(0), sub(sub(arg(0), arg(1)), zx$argsize_0(tmp(old_cf))));
+	asgn(x86_sf, sign(arg(0)));
+	asgn(x86_zf, is_zero(arg(0)));
+	asgn(x86_pf, _x86_parity(trunc$byte(arg(0))));
+
+$ and ! size_same
+: 80 /4 mem_rm:8,imm_imm:8 ! fx_lockable
+: 82 /4 mem_rm:8,imm_imm:8 ! fx_lockable,xasm_skip
+: 81 /4 mem_rm:osz,imm_imm:osz_old ! fx_lockable
+: 83 /4 mem_rm:osz,imm_imm:osz_old ! fx_lockable,sx_yes
+: 20 /r mem_rm:8,reg_r:8 ! fx_lockable
+: 22 /r reg_r:8,mem_rm:8 ! fx_lockable
+: 21 /r mem_rm:osz,reg_r:osz ! fx_lockable
+: 23 /r reg_r:osz,mem_rm:osz ! fx_lockable
+: 24 reg_r:8:0,imm_imm:8
+: 25 reg_r:osz:0,imm_imm:osz_old
+	asgn(x86_of, 0);
+	asgn(x86_af, undefined);
+	asgn(x86_cf, 0);
+	asgn(arg(0), bitand(arg(0), arg(1)));
+	asgn(x86_sf, sign(arg(0)));
+	asgn(x86_zf, is_zero(arg(0)));
+	asgn(x86_pf, _x86_parity(trunc$byte(arg(0))));
+
+$ sub ! size_same
+: 80 /5 mem_rm:8,imm_imm:8 ! fx_lockable
+: 82 /5 mem_rm:8,imm_imm:8 ! fx_lockable,xasm_skip
+: 81 /5 mem_rm:osz,imm_imm:osz_old ! fx_lockable
+: 83 /5 mem_rm:osz,imm_imm:osz_old ! fx_lockable,sx_yes
+: 28 /r mem_rm:8,reg_r:8 ! fx_lockable
+: 2a /r reg_r:8,mem_rm:8 ! fx_lockable
+: 29 /r mem_rm:osz,reg_r:osz ! fx_lockable
+: 2b /r reg_r:osz,mem_rm:osz ! fx_lockable
+: 2c reg_r:8:0,imm_imm:8
+: 2d reg_r:osz:0,imm_imm:osz_old
+	asgn(x86_of, _x86_sub_of(arg(0), arg(1)));
+	asgn(x86_af, _x86_sub_af(trunc$byte(arg(0)), trunc$byte(arg(1))));
+	asgn(x86_cf, _x86_sub_cf(arg(0), arg(1)));
+	asgn(arg(0), sub(arg(0), arg(1)));
+	asgn(x86_sf, sign(arg(0)));
+	asgn(x86_zf, is_zero(arg(0)));
+	asgn(x86_pf, _x86_parity(trunc$byte(arg(0))));
+
+$ xor ! size_same
+: 80 /6 mem_rm:8,imm_imm:8 ! fx_lockable
+: 82 /6 mem_rm:8,imm_imm:8 ! fx_lockable,xasm_skip
+: 81 /6 mem_rm:osz,imm_imm:osz_old ! fx_lockable
+: 83 /6 mem_rm:osz,imm_imm:osz_old ! fx_lockable,sx_yes
+: 30 /r mem_rm:8,reg_r:8 ! fx_lockable
+: 32 /r reg_r:8,mem_rm:8 ! fx_lockable
+: 31 /r mem_rm:osz,reg_r:osz ! fx_lockable
+: 33 /r reg_r:osz,mem_rm:osz ! fx_lockable
+: 34 reg_r:8:0,imm_imm:8
+: 35 reg_r:osz:0,imm_imm:osz_old
+	asgn(x86_of, 0);
+	asgn(x86_af, undefined);
+	asgn(x86_cf, 0);
+	asgn(arg(0), bitxor(arg(0), arg(1)));
+	asgn(x86_sf, sign(arg(0)));
+	asgn(x86_zf, is_zero(arg(0)));
+	asgn(x86_pf, _x86_parity(trunc$byte(arg(0))));
+
+$ cmp ! size_same
+: 80 /7 mem_rm:8,imm_imm:8
+: 82 /7 mem_rm:8,imm_imm:8 ! xasm_skip
+: 81 /7 mem_rm:osz,imm_imm:osz_old
+: 83 /7 mem_rm:osz,imm_imm:osz_old ! sx_yes
+: 38 /r mem_rm:8,reg_r:8
+: 3a /r reg_r:8,mem_rm:8
+: 39 /r mem_rm:osz,reg_r:osz
+: 3b /r reg_r:osz,mem_rm:osz
+: 3c reg_r:8:0,imm_imm:8
+: 3d reg_r:osz:0,imm_imm:osz_old
+	asgn(x86_of, _x86_sub_of(arg(0), arg(1)));
+	asgn(x86_af, _x86_sub_af(trunc$byte(arg(0)), trunc$byte(arg(1))));
+	asgn(x86_cf, _x86_sub_cf(arg(0), arg(1)));
+	asgn(tmp(result), sub(arg(0), arg(1)));
+	asgn(x86_sf, sign(tmp(result)));
+	asgn(x86_zf, is_zero(tmp(result)));
+	asgn(x86_pf, _x86_parity(trunc$byte(tmp(result))));
+
+# -- end arithmatic opcodes ---
+
+# -- begin shift/rotate opcodes ---
+
+# note: we specify 8 bits for shift/rotate count. in truth, only the low 5 or 6 bits are used.
+
+$ rol ! size_same
+: c0 /0 mem_rm:8,imm_imm:8
+: c1 /0 mem_rm:osz,imm_imm:8
+: d0 /0 mem_rm:8,imm_implict8:8:1
+: d1 /0 mem_rm:osz,imm_implict8:8:1
+: d2 /0 mem_rm:8,reg_r:8:1
+: d3 /0 mem_rm:osz,reg_r:8:1
+	asgn(x86_of, _x86_rol_of(arg(0), arg(1)));
+	asgn(x86_af, _x86_rol_af(arg(0), arg(1)));
+	asgn(x86_cf, _x86_rol_cf(arg(0), arg(1)));
+	asgn(x86_sf, _x86_rol_sf(arg(0), arg(1)));
+	asgn(x86_zf, _x86_rol_zf(arg(0), arg(1)));
+	asgn(x86_pf, _x86_rol_pf(arg(0), arg(1)));
+	asgn(arg(0), _x86_rol(arg(0), arg(1)));
+
+$ ror ! size_same
+: c0 /1 mem_rm:8,imm_imm:8
+: c1 /1 mem_rm:osz,imm_imm:8
+: d0 /1 mem_rm:8,imm_implict8:8:1
+: d1 /1 mem_rm:osz,imm_implict8:8:1
+: d2 /1 mem_rm:8,reg_r:8:1
+: d3 /1 mem_rm:osz,reg_r:8:1
+	asgn(x86_of, _x86_ror_of(arg(0), arg(1)));
+	asgn(x86_af, _x86_ror_af(arg(0), arg(1)));
+	asgn(x86_cf, _x86_ror_cf(arg(0), arg(1)));
+	asgn(x86_sf, _x86_ror_sf(arg(0), arg(1)));
+	asgn(x86_zf, _x86_ror_zf(arg(0), arg(1)));
+	asgn(x86_pf, _x86_ror_pf(arg(0), arg(1)));
+	asgn(arg(0), _x86_ror(arg(0), arg(1)));
+
+$ rcl ! size_same
+: c0 /2 mem_rm:8,imm_imm:8
+: c1 /2 mem_rm:osz,imm_imm:8
+: d0 /2 mem_rm:8,imm_implict8:8:1
+: d1 /2 mem_rm:osz,imm_implict8:8:1
+: d2 /2 mem_rm:8,reg_r:8:1
+: d3 /2 mem_rm:osz,reg_r:8:1
+	asgn(tmp(in_cf), x86_cf);
+	asgn(x86_of, _x86_rcl_of(arg(0), arg(1), tmp(in_cf)));
+	asgn(x86_af, _x86_rcl_af(arg(0), arg(1), tmp(in_cf)));
+	asgn(x86_cf, _x86_rcl_cf(arg(0), arg(1), tmp(in_cf)));
+	asgn(x86_sf, _x86_rcl_sf(arg(0), arg(1), tmp(in_cf)));
+	asgn(x86_zf, _x86_rcl_zf(arg(0), arg(1), tmp(in_cf)));
+	asgn(x86_pf, _x86_rcl_pf(arg(0), arg(1), tmp(in_cf)));
+	asgn(arg(0), _x86_rcl(arg(0), arg(1), tmp(in_cf)));
+
+$ rcr ! size_same
+: c0 /3 mem_rm:8,imm_imm:8
+: c1 /3 mem_rm:osz,imm_imm:8
+: d0 /3 mem_rm:8,imm_implict8:8:1
+: d1 /3 mem_rm:osz,imm_implict8:8:1
+: d2 /3 mem_rm:8,reg_r:8:1
+: d3 /3 mem_rm:osz,reg_r:8:1
+	asgn(tmp(in_cf), x86_cf);
+	asgn(x86_of, _x86_rcr_of(arg(0), arg(1), tmp(in_cf)));
+	asgn(x86_af, _x86_rcr_af(arg(0), arg(1), tmp(in_cf)));
+	asgn(x86_cf, _x86_rcr_cf(arg(0), arg(1), tmp(in_cf)));
+	asgn(x86_sf, _x86_rcr_sf(arg(0), arg(1), tmp(in_cf)));
+	asgn(x86_zf, _x86_rcr_zf(arg(0), arg(1), tmp(in_cf)));
+	asgn(x86_pf, _x86_rcr_pf(arg(0), arg(1), tmp(in_cf)));
+	asgn(arg(0), _x86_rcr(arg(0), arg(1), tmp(in_cf)));
+
+$ shl ! size_same
+: c0 /4 mem_rm:8,imm_imm:8
+: c1 /4 mem_rm:osz,imm_imm:8
+: d0 /4 mem_rm:8,imm_implict8:8:1
+: d1 /4 mem_rm:osz,imm_implict8:8:1
+: d2 /4 mem_rm:8,reg_r:8:1
+: d3 /4 mem_rm:osz,reg_r:8:1
+	asgn(x86_of, _x86_shl_of(arg(0), arg(1)));
+	asgn(x86_af, _x86_shl_af(arg(0), arg(1)));
+	asgn(x86_cf, _x86_shl_cf(arg(0), arg(1)));
+	asgn(x86_sf, _x86_shl_sf(arg(0), arg(1)));
+	asgn(x86_zf, _x86_shl_zf(arg(0), arg(1)));
+	asgn(x86_pf, _x86_shl_pf(arg(0), arg(1)));
+	asgn(arg(0), _x86_shl(arg(0), arg(1)));
+
+$ shr ! size_same
+: c0 /5 mem_rm:8,imm_imm:8
+: c1 /5 mem_rm:osz,imm_imm:8
+: d0 /5 mem_rm:8,imm_implict8:8:1
+: d1 /5 mem_rm:osz,imm_implict8:8:1
+: d2 /5 mem_rm:8,reg_r:8:1
+: d3 /5 mem_rm:osz,reg_r:8:1
+	asgn(x86_of, _x86_ushr_of(arg(0), arg(1)));
+	asgn(x86_af, _x86_ushr_af(arg(0), arg(1)));
+	asgn(x86_cf, _x86_ushr_cf(arg(0), arg(1)));
+	asgn(x86_sf, _x86_ushr_sf(arg(0), arg(1)));
+	asgn(x86_zf, _x86_ushr_zf(arg(0), arg(1)));
+	asgn(x86_pf, _x86_ushr_pf(arg(0), arg(1)));
+	asgn(arg(0), _x86_ushr(arg(0), arg(1)));
+
+$ _sal ! size_same
+	write("shl");
+	space();
+	write_args();
+: c0 /6 mem_rm:8,imm_imm:8 ! xasm_skip
+: c1 /6 mem_rm:osz,imm_imm:8 ! xasm_skip
+: d0 /6 mem_rm:8,imm_implict8:8:1 ! xasm_skip
+: d1 /6 mem_rm:osz,imm_implict8:8:1 ! xasm_skip
+: d2 /6 mem_rm:8,reg_r:8:1 ! xasm_skip
+: d3 /6 mem_rm:osz,reg_r:8:1 ! xasm_skip
+	asgn(x86_of, _x86_shl_of(arg(0), arg(1)));
+	asgn(x86_af, _x86_shl_af(arg(0), arg(1)));
+	asgn(x86_cf, _x86_shl_cf(arg(0), arg(1)));
+	asgn(x86_sf, _x86_shl_sf(arg(0), arg(1)));
+	asgn(x86_zf, _x86_shl_zf(arg(0), arg(1)));
+	asgn(x86_pf, _x86_shl_pf(arg(0), arg(1)));
+	asgn(arg(0), _x86_shl(arg(0), arg(1)));
+
+$ sar ! size_same
+: c0 /7 mem_rm:8,imm_imm:8
+: c1 /7 mem_rm:osz,imm_imm:8
+: d0 /7 mem_rm:8,imm_implict8:8:1
+: d1 /7 mem_rm:osz,imm_implict8:8:1
+: d2 /7 mem_rm:8,reg_r:8:1
+: d3 /7 mem_rm:osz,reg_r:8:1
+	asgn(x86_of, _x86_sshr_of(arg(0), arg(1)));
+	asgn(x86_af, _x86_sshr_af(arg(0), arg(1)));
+	asgn(x86_cf, _x86_sshr_cf(arg(0), arg(1)));
+	asgn(x86_sf, _x86_sshr_sf(arg(0), arg(1)));
+	asgn(x86_zf, _x86_sshr_zf(arg(0), arg(1)));
+	asgn(x86_pf, _x86_sshr_pf(arg(0), arg(1)));
+	asgn(arg(0), _x86_sshr(arg(0), arg(1)));
+
+# -- end shift/rotate opcodes ---
+
+$ inc
+: 40 reg_basecode:osz ! o_no64
+: fe /0 mem_rm:8 ! fx_lockable
+: ff /0 mem_rm:osz ! fx_lockable
+	asgn(x86_of, _x86_add_of(arg(0), 1));
+	asgn(x86_af, _x86_add_af(trunc$byte(arg(0)), 1));
+	asgn(arg(0), add(arg(0), 1));
+	asgn(x86_sf, sign(arg(0)));
+	asgn(x86_zf, is_zero(arg(0)));
+	asgn(x86_pf, _x86_parity(trunc$byte(arg(0))));
+
+$ dec
+: 48 reg_basecode:osz ! o_no64
+: fe /1 mem_rm:8 ! fx_lockable
+: ff /1 mem_rm:osz ! fx_lockable
+	asgn(x86_of, _x86_sub_of(arg(0), 1));
+	asgn(x86_af, _x86_sub_af(trunc$byte(arg(0)), 1));
+	asgn(arg(0), sub(arg(0), 1));
+	asgn(x86_sf, sign(arg(0)));
+	asgn(x86_zf, is_zero(arg(0)));
+	asgn(x86_pf, _x86_parity(trunc$byte(arg(0))));
+
+# this was implemented -- now is unhandled.
+# -> [seg reg] xlatb
+$ _xlat
+	write_seg_reg();	// if not 7
+	write("xlatb");
+: d7 mem_xs:8
+
+# --- begin string instructions ---
+
+# arguments given here matches disassembly by msdev.
+# actually, when is rsi/rdi instead of esi/edi or si/di used? is it the operand size? i imagine it's
+# the address size.
+# now wait a minute. address size defaults to 32 bits without a rex, correct? if so, uses esi/edi in 64 bit
+# mode by default, right???
+# believe it or not, it works like this: address size is 64 bits, use 67 for 32-bit not 16-bit address size.
+# a16 is impossible in 64-bit mode.
+
+# print suffixes here (instead of arguments), and sometimes a segment register prefix.
+
+$ _ins
+	write_rep();		// if present
+	write("ins");
+	write_size_suffix(argsize_lo(0));
+: 6c mem_strd:8,reg_r:16:2 ! fx_rep
+: 6d mem_strd:osz_old,reg_r:16:2 ! fx_rep
+
+$ _outs
+	write_seg_reg();
+	write_rep();		// if present
+	write("outs");
+	write_size_suffix(argsize_lo(1));
+: 6e reg_r:16:2,mem_strs:8 ! fx_rep
+: 6f reg_r:16:2,mem_strs:osz_old ! fx_rep
+
+$ _movs ! size_same
+	write_seg_reg();
+	write_rep();		// if present
+	write("movs");
+	write_size_suffix(argsize_lo(0));
+: a4 mem_strd:8,mem_strs:8 ! fx_rep
+: a5 mem_strd:osz,mem_strs:osz ! fx_rep
+
+$ _cmps ! size_same
+	write_seg_reg();
+	write_repcc();		// if present
+	write("cmps");
+	write_size_suffix(argsize_lo(0));
+: a6 mem_strs:8,mem_strd:8 ! fx_rep
+: a7 mem_strs:osz,mem_strd:osz ! fx_rep
+
+$ _stos ! size_same
+	write_rep();		// if present
+	write("stos");
+	write_size_suffix(argsize_lo(0));
+: aa mem_strd:8,reg_r:8:0 ! fx_rep
+: ab mem_strd:osz,reg_r:osz:0 ! fx_rep
+
+$ _lods ! size_same
+	write_seg_reg();
+	write_rep();		// if present
+	write("lods");		// is rep lods useful?
+	write_size_suffix(argsize_lo(0));
+: ac reg_r:8:0,mem_strs:8 ! fx_rep
+: ad reg_r:osz:0,mem_strs:osz ! fx_rep
+
+$ _scas ! size_same
+	write_repcc();		// if present
+	write("scas");
+	write_size_suffix(argsize_lo(0));
+: ae reg_r:8:0,mem_strd:8 ! fx_rep
+: af reg_r:osz:0,mem_strd:osz ! fx_rep
+
+# --- end string instructions ---
+
+# fixme -- is push ss valid in 64bit mode?
+#       -- according to Intel, default operand size is 64 bits in 64 bit mode.
+#       -- a 66 override causes 16 bit operation which may misalign the stack.
+$ _pushsr
+	write_size();
+	write("push");
+	space();
+	write_args();
+: 6 reg_sr:16:0 ! o_no64
+: e reg_sr:16:1 ! o_no64
+: 16 reg_sr:16:2 ! o_no64
+: 1e reg_sr:16:3 ! o_no64
+: 0f a0 reg_sr:16:4 ! o_is64
+: 0f a8 reg_sr:16:5 ! o_is64
+
+$ _popsr
+	write_size();
+	write("pop");
+	space();
+	write_args();
+: 7 reg_sr:16:0 ! o_no64
+: 17 reg_sr:16:2 ! o_no64
+: 1f reg_sr:16:3 ! o_no64
+: 0f a1 reg_sr:16:4 ! o_is64
+: 0f a9 reg_sr:16:5 ! o_is64
+
+$ _push
+	write_size();
+	write("push");
+	space();
+	write_args();
+: 50 reg_basecode:osz ! o_is64
+: 68 imm_imm:osz_old ! o_is64
+: 6a imm_imm:osz_old ! o_is64,sx_yes
+: ff /6 mem_rm:osz_old ! o_is64
+	asgn(stack$osz(0), arg(0));
+
+$ _pop
+	write_size();
+	write("pop");
+	space();
+	write_args();
+: 58 reg_basecode:osz ! o_is64
+# note: for intel 486, 8f /1..7 is the same as 8f /0 according to opcodelist.txt.
+# debug.exe reports the same thing but my cpu recognizes only /0 so we'll use that.
+: 8f /0 mem_rm:osz ! o_is64
+	asgn(arg(0), stack$osz(0));
+
+# NOTE: With _movsr, when it's a memory operand it's always 16-bits. But, if it's a register,
+# and it's a destination, it has size osz. (If it's a source, the processor ignores the upper
+# 16 bits).
+$ _movsrv
+	write("mov");
+	space();
+	write_args();
+: 8e /0 reg_sr:16:0,mem_rm:16
+: 8e /2 reg_sr:16:2,mem_rm:16
+: 8e /3 reg_sr:16:3,mem_rm:16
+: 8e /4 reg_sr:16:4,mem_rm:16
+: 8e /5 reg_sr:16:5,mem_rm:16
+
+$ _movvsr
+	write("mov");
+	space();
+	write_args();
+: 8c /0 mem_rm:osz,reg_sr:16:0 ! mod_3
+: 8c /1 mem_rm:osz,reg_sr:16:1 ! mod_3
+: 8c /2 mem_rm:osz,reg_sr:16:2 ! mod_3
+: 8c /3 mem_rm:osz,reg_sr:16:3 ! mod_3
+: 8c /4 mem_rm:osz,reg_sr:16:4 ! mod_3
+: 8c /5 mem_rm:osz,reg_sr:16:5 ! mod_3
+: 8c /0 mem_rm:16,reg_sr:16:0 ! mod_mem
+: 8c /1 mem_rm:16,reg_sr:16:1 ! mod_mem
+: 8c /2 mem_rm:16,reg_sr:16:2 ! mod_mem
+: 8c /3 mem_rm:16,reg_sr:16:3 ! mod_mem
+: 8c /4 mem_rm:16,reg_sr:16:4 ! mod_mem
+: 8c /5 mem_rm:16,reg_sr:16:5 ! mod_mem
+
+$ _pusha
+	write("pusha");
+	write_size_suffix(get_osz());
+: 60 void ! o_no64
+
+$ _popa
+	write("popa");
+	write_size_suffix(get_osz());
+: 61 void ! o_no64
+
+$ _pushf
+	write("pushf");
+	write_size_suffix(get_osz());
+: 9c void
+
+$ _popf
+	write("popf");
+	write_size_suffix(get_osz());
+: 9d void
+
+# fixme -- why is this is64 ?
+# code: asgn(pc_add, quest(_x86_cc(arg(1)), arg(0), 0));
+$ _jcc ! ctrlxfer_yes
+	// instead of e.g. o32 jmp target should we do e.g. jmp dword short target ?
+	write_size();
+	write("j");
+	write_cc(argvalue(1));
+	space();
+	write_arg(0);
+: 70 imm_rel:osz_old,imm_cc:8 ! o_is64,sx_yes
+: 0f 80 imm_rel:osz_old,imm_cc:8 ! o_is64
+
+# fixme -- why is this is64 ?
+$ call ! ctrlxfer_yes
+: e8 imm_rel:osz_old ! o_is64
+
+# fixme -- why is this is64 ?
+$ _calli ! ctrlxfer_yes
+	write("call");
+	space();
+	write_args();
+: ff /2 mem_rm:osz ! o_is64
+
+# check with bochs. Intel64 says _callf indirect can use 64 bit operand size, and this seems necessary, but amd64 docs do not indicate that it is allowed.
+$ _callfd ! ctrlxfer_yes
+	write("call");
+	space();
+	write_far_imm();
+: 9a imm_imm:osz,imm_imm:16 ! o_no64
+
+$ _callfi ! ctrlxfer_yes
+	write("call");
+	space();
+	write_args();
+: ff /3 mem_rm:osz_old.16 ! mod_mem
+
+# should these be is64? does it even matter? see bochs. i think no because amd64 says it can be 8, 16, or 32 bits (even in 64 bit mode). is this
+# accurate? is it relevant?
+$ jmp ! ctrlxfer_yes
+: e9 imm_rel:osz_old
+: eb imm_rel:osz_old ! sx_yes
+
+# fixme -- why is this is64 ?
+$ _jmpi ! ctrlxfer_yes
+	write("jmp");
+	space();
+	write_args();
+: ff /4 mem_rm:osz ! o_is64
+
+# check with bochs. Intel64 says _jmpfd indirect can use 64 bit operand size, and this seems necessary, but amd64 docs do not indicate that it is allowed.
+$ _jmpfd ! ctrlxfer_yes
+	write("jmp");
+	space();
+	write_far_imm();
+: ea imm_imm:osz,imm_imm:16 ! o_no64
+
+$ _jmpfi ! ctrlxfer_yes
+	write("jmp");
+	space();
+	write_args();
+: ff /5 mem_rm:osz_old.16 ! mod_mem
+
+# fixme -- why is this is64 ?
+$ _retnum ! ctrlxfer_yes,size_none
+	write("ret");
+	space();
+	write_args();
+: c2 imm_imm:16 ! o_is64
+
+$ _ret ! ctrlxfer_yes,size_none
+	write("ret");
+: c3 imm_implict8:16:0 ! o_is64
+
+$ _retfnum ! ctrlxfer_yes,size_none
+	write("retf");
+	space();
+	write_args();
+: ca imm_imm:16
+
+$ _retf ! ctrlxfer_yes
+	write("retf");
+: cb imm_implict8:16:0
+
+$ _int3 ! ctrlxfer_yes
+	write("int3");
+: cc void
+
+$ int ! ctrlxfer_yes,size_none
+: cd imm_imm:8
+
+$ _iret ! ctrlxfer_yes
+	//write_size();
+	write("iret");
+	write_size_suffix(get_osz());
+: cf void
+
+# fixme -- why is this is64 ?
+$ _loopnz ! ctrlxfer_yes
+	write("loopnz");
+	space();
+	write_arg(0);
+: e0 imm_rel:osz,reg_r:asz:1 ! o_is64,sx_yes
+
+# fixme -- why is this is64 ?
+$ _loopz ! ctrlxfer_yes
+	write("loopz");
+	space();
+	write_arg(0);
+: e1 imm_rel:osz,reg_r:asz:1 ! o_is64,sx_yes
+
+# fixme -- why is this is64 ?
+$ _loop ! ctrlxfer_yes
+	write("loop");
+	space();
+	write_arg(0);
+: e2 imm_rel:osz,reg_r:asz:1 ! o_is64,sx_yes
+
+# fixme -- why is this is64 ?
+# Take note! address size distinguishes which opcode is used.
+# Is it possible to use a REX with this and thus use ecx not rcx? find out, it matters! see bochs.
+$ _jrcxz ! ctrlxfer_yes
+	write_size();
+	if(get_asz() == argsize_16)
+		write("jcxz");
+	else
+	if(get_asz() == argsize_32)
+		write("jecxz");
+	else
+		write("jrcxz");
+	space();
+	write_arg(0);
+: e3 imm_rel:osz,reg_r:asz:1 ! o_is64,sx_yes
+
+$ hlt
+: f4 void
+
+$ cli
+: fa void
+
+$ sti
+: fb void
+
+$ in ! size_none
+: e4 reg_r:8:0,imm_imm:8
+: e5 reg_r:osz_old:0,imm_imm:8
+: ec reg_r:8:0,reg_r:16:2
+: ed reg_r:osz_old:0,reg_r:16:2
+
+$ out ! size_none
+: e6 imm_imm:8,reg_r:8:0
+: e7 imm_imm:8,reg_r:osz_old:0
+: ee reg_r:16:2,reg_r:8:0
+: ef reg_r:16:2,reg_r:osz_old:0
+
+$ wait
+: 9b void
+
+#--------------------------------------------------------------------------------------------------
+# --- 186+ things follow ---
+#--------------------------------------------------------------------------------------------------
+
+$ bsf ! size_same
+: 0f bc /r reg_r:osz,mem_rm:osz
+
+$ bsr ! size_same
+: 0f bd /r reg_r:osz,mem_rm:osz
+
+# -> bt dword [x],eax     -- won't suppress 'dword'.
+# -> bt dword [x],byte 3  -- won't suppress 'byte'.
+$ bt
+: 0f a3 /r mem_rm:osz,reg_r:osz
+: 0f ba /4 mem_rm:osz,imm_imm:8
+
+$ bts
+: 0f ab /r mem_rm:osz,reg_r:osz ! fx_lockable
+: 0f ba /5 mem_rm:osz,imm_imm:8 ! fx_lockable
+
+$ btr
+: 0f b3 /r mem_rm:osz,reg_r:osz ! fx_lockable
+: 0f ba /6 mem_rm:osz,imm_imm:8 ! fx_lockable
+
+$ btc
+: 0f bb /r mem_rm:osz,reg_r:osz ! fx_lockable
+: 0f ba /7 mem_rm:osz,imm_imm:8 ! fx_lockable
+
+$ bswap
+: 0f c8 reg_basecode:osz ! o_no16
+
+$ cmpxchg ! size_same
+: 0f b0 /r mem_rm:8,reg_r:8 ! fx_lockable
+: 0f b1 /r mem_rm:osz,reg_r:osz ! fx_lockable
+
+$ movzx
+: 0f b6 /r reg_r:osz,mem_rm:8
+: 0f b7 /r reg_r:osz_32,mem_rm:16
+	asgn(arg(0), zx$argsize_0(arg(1)));
+
+$ movsx
+: 0f be /r reg_r:osz,mem_rm:8
+: 0f bf /r reg_r:osz_32,mem_rm:16
+	asgn(arg(0), sx$argsize_0(arg(1)));
+
+# This instruction is valid only in protected mode.
+# Not valid in 64-bit mode.
+# arpl: valid only in protected mode. In real or vm86 mode it will #UD (int 6).
+# arpl: in 64 bit mode this is movsxd, used with rex.w.
+$ _arpl_movsxd
+	// This is probably not right. It's probably wired correctly for non-64-bit mode, need special code
+	// in the decode to make movsxd work right.
+	// Should abort if in 64-bit mode for now...
+	if(get_osz() == argsize_64)
+		write("movsxd");
+	else
+		write("arpl");
+	space();
+	write_args();
+: 63 /r mem_rm:16,reg_r:16 ! o_sp64_movsxd
+
+$ shld
+: 0f a4 /r mem_rm:osz,reg_r:osz,imm_imm:8
+: 0f a5 /r mem_rm:osz,reg_r:osz,reg_r:8:1
+	asgn(arg(0), _x86_shld(arg(0), arg(1), arg(2)));
+	asgn(x86_of, _x86_shld_of(arg(0), arg(1), arg(2)));
+	asgn(x86_sf, _x86_shld_sf(arg(0), arg(1), arg(2)));
+	asgn(x86_zf, _x86_shld_zf(arg(0), arg(1), arg(2)));
+	asgn(x86_af, _x86_shld_af(arg(0), arg(1), arg(2)));
+	asgn(x86_pf, _x86_shld_pf(arg(0), arg(1), arg(2)));
+	asgn(x86_cf, _x86_shld_cf(arg(0), arg(1), arg(2)));
+
+$ shrd
+: 0f ac /r mem_rm:osz,reg_r:osz,imm_imm:8
+: 0f ad /r mem_rm:osz,reg_r:osz,reg_r:8:1
+	asgn(arg(0), _x86_shrd(arg(0), arg(1), arg(2)));
+	asgn(x86_of, _x86_shrd_of(arg(0), arg(1), arg(2)));
+	asgn(x86_sf, _x86_shrd_sf(arg(0), arg(1), arg(2)));
+	asgn(x86_zf, _x86_shrd_zf(arg(0), arg(1), arg(2)));
+	asgn(x86_af, _x86_shrd_af(arg(0), arg(1), arg(2)));
+	asgn(x86_pf, _x86_shrd_pf(arg(0), arg(1), arg(2)));
+	asgn(x86_cf, _x86_shrd_cf(arg(0), arg(1), arg(2)));
+
+$ _cmpxchgxb ! size_none
+	// Is this right?
+	if(get_osz() == argsize_64)
+		write("cmpxchg16b");
+	else
+		write("cmpxchg8b");
+	space();
+	write_args();
+: 0f c7 /1 mem_rm:osz_new ! fx_none_lockable,mod_mem,op66_no66
+#: 66 0f c7 /1 mem_rm:osz_new ! fx_none_lockable,mod_mem,xasm_skip
+
+# --- begin vmx instructions ---
+
+$ vmxon
+: f3 0f c7 /6 mem_rm:64 ! mod_mem,op66_no66
+
+$ vmclear
+: 66 0f c7 /6 mem_rm:64 ! fx_none,mod_mem
+
+$ vmcall
+: 0f 1 /0 void ! mod_3,rm_1
+
+$ vmlaunch
+: 0f 1 /0 void ! mod_3,rm_2
+
+$ vmresume
+: 0f 1 /0 void ! mod_3,rm_3
+
+$ vmxoff
+: 0f 1 /0 void ! mod_3,rm_4
+
+$ vmptrld
+: 0f c7 /6 mem_rm:64 ! fx_none,mod_mem,op66_no66
+
+$ vmptrst
+: 0f c7 /7 mem_rm:64 ! fx_none,mod_mem,op66_no66
+
+$ vmread ! size_same
+: 0f 78 /r mem_rm:osz_ptr,reg_r:osz_ptr ! fx_none,op66_no66
+
+$ vmwrite ! size_same
+: 0f 79 /r reg_r:osz_ptr,mem_rm:osz_ptr ! fx_none,op66_no66
+
+# --- end vmx instructions ---
+
+# FIXME--reportedly this is LOCKED. Fix it.
+$ xadd ! size_same
+: 0f c0 /r mem_rm:8,reg_r:8 ! fx_lockable
+: 0f c1 /r mem_rm:osz,reg_r:osz ! fx_lockable
+
+$ les ! size_none_dsz
+: c4 /r reg_r:osz,mem_rm:osz.16 ! o_no64,mod_mem
+
+$ lds ! size_none_dsz
+: c5 /r reg_r:osz,mem_rm:osz.16 ! o_no64,mod_mem
+
+$ lss ! size_none_dsz
+: 0f b2 /r reg_r:osz_old,mem_rm:osz_old.16 ! mod_mem
+
+$ lfs ! size_none_dsz
+: 0f b4 /r reg_r:osz_old,mem_rm:osz_old.16 ! mod_mem
+
+$ lgs ! size_none_dsz
+: 0f b5 /r reg_r:osz_old,mem_rm:osz_old.16 ! mod_mem
+
+# fixme -- why is this is64 ?
+$ enter ! size_none
+: c8 imm_imm:16,imm_imm:8 ! o_is64
+
+# fixme -- why is this is64 ?
+# leave is the same as:
+#   mov esp,ebp
+#   pop ebp
+$ leave
+: c9 void ! o_is64
+	asgn(x86_xsp, x86_xbp);
+	asgn(x86_xbp, stack$osz(0));
+
+# --- AMD says operand size prefix is always ignored.
+$ sidt ! size_none_dsz
+: 0f 1 /1 mem_rm:16.osz_24 ! mod_mem
+
+$ lgdt ! size_none_dsz
+: 0f 1 /2 mem_rm:16.osz_24 ! mod_mem
+
+$ lidt ! size_none_dsz
+: 0f 1 /3 mem_rm:16.osz_24 ! mod_mem
+
+$ sldt
+: 0f 0 /0 mem_rm:16 ! mod_mem
+: 0f 0 /0 mem_rm:osz ! mod_3
+
+$ smsw
+: 0f 1 /4 mem_rm:16 ! mod_mem
+: 0f 1 /4 mem_rm:osz ! mod_3
+
+$ lmsw
+: 0f 1 /6 mem_rm:16
+
+# -> str word [bx+si]	--- can't suppress size, here.
+# -> str ax
+$ str
+: 0f 0 /1 mem_rm:16 ! mod_mem
+: 0f 0 /1 mem_rm:osz ! mod_3
+
+$ verr ! size_none
+: 0f 0 /4 mem_rm:16
+
+$ verw ! size_none
+: 0f 0 /5 mem_rm:16
+
+$ wbinvd
+: 0f 9 void
+
+$ wrmsr
+: 0f 30 void
+
+$ rdmsr
+: 0f 32 void
+
+$ rdpmc
+: 0f 33 void
+
+$ rdtsc
+: 0f 31 void
+
+$ clts
+: 0f 6 void
+
+$ cpuid
+: 0f a2 void
+
+$ invd
+: 0f 8 void
+
+# invlpg [x] is understood to be a byte atccess.
+# --- do we really want size_none here? yes, nasm accepts e.g. invlpg [bx+si].
+$ invlpg ! size_none,
+: 0f 1 /7 mem_rm:8 ! mod_mem,ea_noaccess
+
+$ lar ! size_same
+: 0f 2 /r reg_r:osz,mem_rm:16
+
+$ lldt ! size_none
+: 0f 0 /2 mem_rm:16
+
+$ lsl ! size_same
+: 0f 3 /r reg_r:osz,mem_rm:osz
+
+$ ltr ! size_none
+: 0f 0 /3 mem_rm:16
+
+$ _movcr ! size_same
+	write("mov");
+	space();
+	write_args();
+: 0f 20 /r mem_rm:osz_ptr,reg_cr:osz_ptr ! mod_3
+: 0f 22 /r reg_cr:osz_ptr,mem_rm:osz_ptr ! mod_3
+
+$ _movdr ! size_same
+	write("mov");
+	space();
+	write_args();
+: 0f 21 /r mem_rm:osz_ptr,reg_dr:osz_ptr ! mod_3
+: 0f 23 /r reg_dr:osz_ptr,mem_rm:osz_ptr ! mod_3
+
+$ sgdt ! size_none_dsz
+: 0f 1 /0 mem_rm:16.osz_24 ! mod_mem
+
+# take note.
+# 0f 01 /0 edx is vmlaunch.
+# e.g. sgdt edx/dx 
+
+# -- the multibyte nop does not alter the register and does not access memory at all. [[right??]
+# 0f aa    = rsm (???)  [valid in smm only]
+# 0f 0b    = ud2
+
+$ rsm
+: 0f aa void
+
+$ ud2
+: 0f 0b void
+
+# sysenter / sysexit ?? syscall / sysret ??
+# the presence of these is indicated by certain cpuid bits which presumably we can just clear.
+# also true for some form of cmpxchg i believe...
+
+# sysenter : 0f 34
+# sysexit : 0f 35
+
+$ sysenter
+: 0f 34 void
+
+$ sysexit
+: 0f 35 void
