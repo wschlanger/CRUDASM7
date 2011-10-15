@@ -1056,15 +1056,15 @@ ParseNode *parse_ixRULE_insn_body()
 			case KEYWORD_ixcode:	// "code"
 				addTerminal(node);
 				nextToken();
-				goto L_31;
+				goto L_34;
 			case KEYWORD_ixnotes:	// "notes"
 				addTerminal(node);
 				nextToken();
-				goto L_34;
+				goto L_37;
 			case KEYWORD_ixdis:	// "dis"
 				addTerminal(node);
 				nextToken();
-				goto L_37;
+				goto L_40;
 			default:
 				throw ParseSyntaxError();
 				break;
@@ -1345,11 +1345,15 @@ ParseNode *parse_ixRULE_insn_body()
 		L_27:
 		switch(getToken())
 		{
+			case '(':
+				addTerminal(node);
+				nextToken();
+				goto L_28;
 			// begin rule emu_body
 			case KEYWORD_ixbegin:	// "begin"
 			// end rule emu_body
 				addNonterminal(node, parse_ixRULE_emu_body());
-				goto L_28;
+				goto L_31;
 			default:
 				throw ParseSyntaxError();
 				break;
@@ -1357,9 +1361,10 @@ ParseNode *parse_ixRULE_insn_body()
 		L_28:
 		switch(getToken())
 		{
-			case KEYWORD_ixemu:	// "emu"
-				addTerminal(node);
-				nextToken();
+			// begin rule emu_sens
+			case TOKEN_ixIDENT:
+			// end rule emu_sens
+				addNonterminal(node, parse_ixRULE_emu_sens());
 				goto L_29;
 			default:
 				throw ParseSyntaxError();
@@ -1368,7 +1373,7 @@ ParseNode *parse_ixRULE_insn_body()
 		L_29:
 		switch(getToken())
 		{
-			case ';':
+			case ')':
 				addTerminal(node);
 				nextToken();
 				goto L_30;
@@ -1379,18 +1384,21 @@ ParseNode *parse_ixRULE_insn_body()
 		L_30:
 		switch(getToken())
 		{
+			// begin rule emu_body
+			case KEYWORD_ixbegin:	// "begin"
+			// end rule emu_body
+				addNonterminal(node, parse_ixRULE_emu_body());
+				goto L_31;
 			default:
-				return node;	// accept state
+				throw ParseSyntaxError();
 				break;
 		}
 		L_31:
 		switch(getToken())
 		{
-			// begin rule machine_code
-			case TOKEN_ixIDENT:
-			case TOKEN_ixLITNUM:
-			// end rule machine_code
-				addNonterminal(node, parse_ixRULE_machine_code());
+			case KEYWORD_ixemu:	// "emu"
+				addTerminal(node);
+				nextToken();
 				goto L_32;
 			default:
 				throw ParseSyntaxError();
@@ -1417,10 +1425,11 @@ ParseNode *parse_ixRULE_insn_body()
 		L_34:
 		switch(getToken())
 		{
-			// begin rule remarks
-			case TOKEN_ixSQUARE:
-			// end rule remarks
-				addNonterminal(node, parse_ixRULE_remarks());
+			// begin rule machine_code
+			case TOKEN_ixIDENT:
+			case TOKEN_ixLITNUM:
+			// end rule machine_code
+				addNonterminal(node, parse_ixRULE_machine_code());
 				goto L_35;
 			default:
 				throw ParseSyntaxError();
@@ -1447,9 +1456,10 @@ ParseNode *parse_ixRULE_insn_body()
 		L_37:
 		switch(getToken())
 		{
-			case KEYWORD_ixbegin:	// "begin"
-				addTerminal(node);
-				nextToken();
+			// begin rule remarks
+			case TOKEN_ixSQUARE:
+			// end rule remarks
+				addNonterminal(node, parse_ixRULE_remarks());
 				goto L_38;
 			default:
 				throw ParseSyntaxError();
@@ -1458,15 +1468,9 @@ ParseNode *parse_ixRULE_insn_body()
 		L_38:
 		switch(getToken())
 		{
-			case KEYWORD_ixend:	// "end"
+			case ';':
 				addTerminal(node);
 				nextToken();
-				goto L_40;
-			// begin rule dis_body
-			case TOKEN_ixIDENT:
-			case KEYWORD_ixif:	// "if"
-			// end rule dis_body
-				addNonterminal(node, parse_ixRULE_dis_body());
 				goto L_39;
 			default:
 				throw ParseSyntaxError();
@@ -1475,18 +1479,14 @@ ParseNode *parse_ixRULE_insn_body()
 		L_39:
 		switch(getToken())
 		{
-			case KEYWORD_ixend:	// "end"
-				addTerminal(node);
-				nextToken();
-				goto L_40;
 			default:
-				throw ParseSyntaxError();
+				return node;	// accept state
 				break;
 		}
 		L_40:
 		switch(getToken())
 		{
-			case KEYWORD_ixdis:	// "dis"
+			case KEYWORD_ixbegin:	// "begin"
 				addTerminal(node);
 				nextToken();
 				goto L_41;
@@ -1497,15 +1497,54 @@ ParseNode *parse_ixRULE_insn_body()
 		L_41:
 		switch(getToken())
 		{
-			case ';':
+			case KEYWORD_ixend:	// "end"
 				addTerminal(node);
 				nextToken();
+				goto L_43;
+			// begin rule dis_body
+			case TOKEN_ixIDENT:
+			case KEYWORD_ixif:	// "if"
+			// end rule dis_body
+				addNonterminal(node, parse_ixRULE_dis_body());
 				goto L_42;
 			default:
 				throw ParseSyntaxError();
 				break;
 		}
 		L_42:
+		switch(getToken())
+		{
+			case KEYWORD_ixend:	// "end"
+				addTerminal(node);
+				nextToken();
+				goto L_43;
+			default:
+				throw ParseSyntaxError();
+				break;
+		}
+		L_43:
+		switch(getToken())
+		{
+			case KEYWORD_ixdis:	// "dis"
+				addTerminal(node);
+				nextToken();
+				goto L_44;
+			default:
+				throw ParseSyntaxError();
+				break;
+		}
+		L_44:
+		switch(getToken())
+		{
+			case ';':
+				addTerminal(node);
+				nextToken();
+				goto L_45;
+			default:
+				throw ParseSyntaxError();
+				break;
+		}
+		L_45:
 		switch(getToken())
 		{
 			default:
@@ -1549,6 +1588,7 @@ ParseNode *parse_ixRULE_emu_body()
 			case TOKEN_ixIDENT:
 			case KEYWORD_ixexcept_assert:	// "except_assert"
 			case KEYWORD_ixreturn:	// "return"
+			case KEYWORD_ixtimes:	// "times"
 			// end rule emu_stmt
 				addNonterminal(node, parse_ixRULE_emu_stmt());
 				goto L_2;
@@ -1567,6 +1607,7 @@ ParseNode *parse_ixRULE_emu_body()
 			case TOKEN_ixIDENT:
 			case KEYWORD_ixexcept_assert:	// "except_assert"
 			case KEYWORD_ixreturn:	// "return"
+			case KEYWORD_ixtimes:	// "times"
 			// end rule emu_stmt
 				addNonterminal(node, parse_ixRULE_emu_stmt());
 				goto L_2;
@@ -1577,6 +1618,65 @@ ParseNode *parse_ixRULE_emu_body()
 		L_3:
 		switch(getToken())
 		{
+			default:
+				return node;	// accept state
+				break;
+		}
+	}
+	catch(ParseSyntaxError &e)
+	{
+		delete node;
+		throw e;
+	}
+	return NULL;
+}
+
+ParseNode *parse_ixRULE_emu_sens()
+{
+	ParseNode *node = new ParseNode(RULE_ixemu_sens, getLine(), getFile());
+	try
+	{
+		goto L_0;
+		L_0:
+		switch(getToken())
+		{
+			case TOKEN_ixIDENT:
+				addTerminal(node);
+				nextToken();
+				goto L_1;
+			default:
+				throw ParseSyntaxError();
+				break;
+		}
+		L_1:
+		switch(getToken())
+		{
+			case ',':
+				addTerminal(node);
+				nextToken();
+				goto L_2;
+			default:
+				return node;	// accept state
+				break;
+		}
+		L_2:
+		switch(getToken())
+		{
+			case TOKEN_ixIDENT:
+				addTerminal(node);
+				nextToken();
+				goto L_3;
+			default:
+				throw ParseSyntaxError();
+				break;
+		}
+		L_3:
+		switch(getToken())
+		{
+			case ',':
+				addTerminal(node);
+				nextToken();
+				goto L_2;
 			default:
 				return node;	// accept state
 				break;
@@ -1769,14 +1869,16 @@ ParseNode *parse_ixRULE_machine_code()
 			// end rule ascii
 				addNonterminal(node, parse_ixRULE_ascii());
 				goto L_2;
-			case '/':
-				addTerminal(node);
-				nextToken();
-				goto L_3;
 			case '(':
 				addTerminal(node);
 				nextToken();
-				goto L_5;
+				goto L_4;
+			// begin rule slash_code_item
+			case '/':
+			case '+':
+			// end rule slash_code_item
+				addNonterminal(node, parse_ixRULE_slash_code_item());
+				goto L_3;
 			default:
 				throw ParseSyntaxError();
 				break;
@@ -1790,14 +1892,16 @@ ParseNode *parse_ixRULE_machine_code()
 			// end rule ascii
 				addNonterminal(node, parse_ixRULE_ascii());
 				goto L_2;
-			case '/':
-				addTerminal(node);
-				nextToken();
-				goto L_3;
 			case '(':
 				addTerminal(node);
 				nextToken();
-				goto L_5;
+				goto L_4;
+			// begin rule slash_code_item
+			case '/':
+			case '+':
+			// end rule slash_code_item
+				addNonterminal(node, parse_ixRULE_slash_code_item());
+				goto L_3;
 			default:
 				throw ParseSyntaxError();
 				break;
@@ -1805,13 +1909,16 @@ ParseNode *parse_ixRULE_machine_code()
 		L_3:
 		switch(getToken())
 		{
-			// begin rule slash_code
-			case TOKEN_ixLITNUM:
-			case KEYWORD_ixr:	// "r"
-			case KEYWORD_ixmod:	// "mod"
-			// end rule slash_code
-				addNonterminal(node, parse_ixRULE_slash_code());
+			case '(':
+				addTerminal(node);
+				nextToken();
 				goto L_4;
+			// begin rule slash_code_item
+			case '/':
+			case '+':
+			// end rule slash_code_item
+				addNonterminal(node, parse_ixRULE_slash_code_item());
+				goto L_3;
 			default:
 				throw ParseSyntaxError();
 				break;
@@ -1819,13 +1926,11 @@ ParseNode *parse_ixRULE_machine_code()
 		L_4:
 		switch(getToken())
 		{
-			case '/':
-				addTerminal(node);
-				nextToken();
-				goto L_3;
-			case '(':
-				addTerminal(node);
-				nextToken();
+			// begin rule machine_arg_list
+			case TOKEN_ixIDENT:
+			case TOKEN_ixLITNUM:
+			// end rule machine_arg_list
+				addNonterminal(node, parse_ixRULE_machine_arg_list());
 				goto L_5;
 			default:
 				throw ParseSyntaxError();
@@ -1834,11 +1939,9 @@ ParseNode *parse_ixRULE_machine_code()
 		L_5:
 		switch(getToken())
 		{
-			// begin rule machine_arg_list
-			case TOKEN_ixIDENT:
-			case TOKEN_ixLITNUM:
-			// end rule machine_arg_list
-				addNonterminal(node, parse_ixRULE_machine_arg_list());
+			case ')':
+				addTerminal(node);
+				nextToken();
 				goto L_6;
 			default:
 				throw ParseSyntaxError();
@@ -1847,49 +1950,38 @@ ParseNode *parse_ixRULE_machine_code()
 		L_6:
 		switch(getToken())
 		{
-			case ')':
+			case '<':
 				addTerminal(node);
 				nextToken();
 				goto L_7;
 			default:
-				throw ParseSyntaxError();
-				break;
-		}
-		L_7:
-		switch(getToken())
-		{
-			case '<':
-				addTerminal(node);
-				nextToken();
-				goto L_8;
-			default:
 				return node;	// accept state
 				break;
 		}
-		L_8:
+		L_7:
 		switch(getToken())
 		{
 			// begin rule machine_extra_list
 			case TOKEN_ixIDENT:
 			// end rule machine_extra_list
 				addNonterminal(node, parse_ixRULE_machine_extra_list());
+				goto L_8;
+			default:
+				throw ParseSyntaxError();
+				break;
+		}
+		L_8:
+		switch(getToken())
+		{
+			case '>':
+				addTerminal(node);
+				nextToken();
 				goto L_9;
 			default:
 				throw ParseSyntaxError();
 				break;
 		}
 		L_9:
-		switch(getToken())
-		{
-			case '>':
-				addTerminal(node);
-				nextToken();
-				goto L_10;
-			default:
-				throw ParseSyntaxError();
-				break;
-		}
-		L_10:
 		switch(getToken())
 		{
 			default:
@@ -2273,10 +2365,10 @@ ParseNode *parse_ixRULE_rhs()
 			case KEYWORD_ixSHL:	// "<<"
 			case '&':
 			case '*':
+			case '+':
 			case KEYWORD_ixsigned:	// "signed"
 			case KEYWORD_ixunsigned:	// "unsigned"
 			case '-':
-			case '+':
 			case '|':
 			case '^':
 			// end rule binary_op
@@ -2348,10 +2440,10 @@ ParseNode *parse_ixRULE_rhs()
 			case KEYWORD_ixSHL:	// "<<"
 			case '&':
 			case '*':
+			case '+':
 			case KEYWORD_ixsigned:	// "signed"
 			case KEYWORD_ixunsigned:	// "unsigned"
 			case '-':
-			case '+':
 			case '|':
 			case '^':
 			// end rule binary_op
@@ -2424,10 +2516,10 @@ ParseNode *parse_ixRULE_rhs()
 			case KEYWORD_ixSHL:	// "<<"
 			case '&':
 			case '*':
+			case '+':
 			case KEYWORD_ixsigned:	// "signed"
 			case KEYWORD_ixunsigned:	// "unsigned"
 			case '-':
-			case '+':
 			case '|':
 			case '^':
 			// end rule binary_op
@@ -2470,24 +2562,20 @@ ParseNode *parse_ixRULE_rhs()
 	return NULL;
 }
 
-ParseNode *parse_ixRULE_slash_code()
+ParseNode *parse_ixRULE_slash_code_item()
 {
-	ParseNode *node = new ParseNode(RULE_ixslash_code, getLine(), getFile());
+	ParseNode *node = new ParseNode(RULE_ixslash_code_item, getLine(), getFile());
 	try
 	{
 		goto L_0;
 		L_0:
 		switch(getToken())
 		{
-			case TOKEN_ixLITNUM:
+			case '/':
 				addTerminal(node);
 				nextToken();
 				goto L_1;
-			case KEYWORD_ixr:	// "r"
-				addTerminal(node);
-				nextToken();
-				goto L_2;
-			case KEYWORD_ixmod:	// "mod"
+			case '+':
 				addTerminal(node);
 				nextToken();
 				goto L_3;
@@ -2498,8 +2586,15 @@ ParseNode *parse_ixRULE_slash_code()
 		L_1:
 		switch(getToken())
 		{
+			// begin rule slash_code
+			case TOKEN_ixLITNUM:
+			case KEYWORD_ixr:	// "r"
+			case KEYWORD_ixmod:	// "mod"
+			// end rule slash_code
+				addNonterminal(node, parse_ixRULE_slash_code());
+				goto L_2;
 			default:
-				return node;	// accept state
+				throw ParseSyntaxError();
 				break;
 		}
 		L_2:
@@ -2512,7 +2607,7 @@ ParseNode *parse_ixRULE_slash_code()
 		L_3:
 		switch(getToken())
 		{
-			case ':':
+			case KEYWORD_ixr:	// "r"
 				addTerminal(node);
 				nextToken();
 				goto L_4;
@@ -2521,18 +2616,6 @@ ParseNode *parse_ixRULE_slash_code()
 				break;
 		}
 		L_4:
-		switch(getToken())
-		{
-			// begin rule mod_code
-			case KEYWORD_ixmem_only:	// "mem_only"
-			// end rule mod_code
-				addNonterminal(node, parse_ixRULE_mod_code());
-				goto L_5;
-			default:
-				throw ParseSyntaxError();
-				break;
-		}
-		L_5:
 		switch(getToken())
 		{
 			default:
@@ -2672,6 +2755,84 @@ ParseNode *parse_ixRULE_machine_extra_list()
 	return NULL;
 }
 
+ParseNode *parse_ixRULE_slash_code()
+{
+	ParseNode *node = new ParseNode(RULE_ixslash_code, getLine(), getFile());
+	try
+	{
+		goto L_0;
+		L_0:
+		switch(getToken())
+		{
+			case TOKEN_ixLITNUM:
+				addTerminal(node);
+				nextToken();
+				goto L_1;
+			case KEYWORD_ixr:	// "r"
+				addTerminal(node);
+				nextToken();
+				goto L_2;
+			case KEYWORD_ixmod:	// "mod"
+				addTerminal(node);
+				nextToken();
+				goto L_3;
+			default:
+				throw ParseSyntaxError();
+				break;
+		}
+		L_1:
+		switch(getToken())
+		{
+			default:
+				return node;	// accept state
+				break;
+		}
+		L_2:
+		switch(getToken())
+		{
+			default:
+				return node;	// accept state
+				break;
+		}
+		L_3:
+		switch(getToken())
+		{
+			case ':':
+				addTerminal(node);
+				nextToken();
+				goto L_4;
+			default:
+				throw ParseSyntaxError();
+				break;
+		}
+		L_4:
+		switch(getToken())
+		{
+			// begin rule mod_code
+			case KEYWORD_ixmem_only:	// "mem_only"
+			// end rule mod_code
+				addNonterminal(node, parse_ixRULE_mod_code());
+				goto L_5;
+			default:
+				throw ParseSyntaxError();
+				break;
+		}
+		L_5:
+		switch(getToken())
+		{
+			default:
+				return node;	// accept state
+				break;
+		}
+	}
+	catch(ParseSyntaxError &e)
+	{
+		delete node;
+		throw e;
+	}
+	return NULL;
+}
+
 ParseNode *parse_ixRULE_mod_code()
 {
 	ParseNode *node = new ParseNode(RULE_ixmod_code, getLine(), getFile());
@@ -2736,11 +2897,11 @@ ParseNode *parse_ixRULE_machine_extra_item()
 		L_2:
 		switch(getToken())
 		{
-			// begin rule ascii
+			// begin rule machine_extra_asgn
 			case TOKEN_ixIDENT:
 			case TOKEN_ixLITNUM:
-			// end rule ascii
-				addNonterminal(node, parse_ixRULE_ascii());
+			// end rule machine_extra_asgn
+				addNonterminal(node, parse_ixRULE_machine_extra_asgn());
 				goto L_3;
 			default:
 				throw ParseSyntaxError();
@@ -2749,6 +2910,134 @@ ParseNode *parse_ixRULE_machine_extra_item()
 		L_3:
 		switch(getToken())
 		{
+			default:
+				return node;	// accept state
+				break;
+		}
+	}
+	catch(ParseSyntaxError &e)
+	{
+		delete node;
+		throw e;
+	}
+	return NULL;
+}
+
+ParseNode *parse_ixRULE_machine_extra_asgn()
+{
+	ParseNode *node = new ParseNode(RULE_ixmachine_extra_asgn, getLine(), getFile());
+	try
+	{
+		goto L_0;
+		L_0:
+		switch(getToken())
+		{
+			// begin rule ascii
+			case TOKEN_ixIDENT:
+			case TOKEN_ixLITNUM:
+			// end rule ascii
+				addNonterminal(node, parse_ixRULE_ascii());
+				goto L_1;
+			default:
+				throw ParseSyntaxError();
+				break;
+		}
+		L_1:
+		switch(getToken())
+		{
+			case '(':
+				addTerminal(node);
+				nextToken();
+				goto L_2;
+			default:
+				return node;	// accept state
+				break;
+		}
+		L_2:
+		switch(getToken())
+		{
+			// begin rule machine_extra_tag_list
+			case TOKEN_ixLITNUM:
+			// end rule machine_extra_tag_list
+				addNonterminal(node, parse_ixRULE_machine_extra_tag_list());
+				goto L_3;
+			default:
+				throw ParseSyntaxError();
+				break;
+		}
+		L_3:
+		switch(getToken())
+		{
+			case ')':
+				addTerminal(node);
+				nextToken();
+				goto L_4;
+			default:
+				throw ParseSyntaxError();
+				break;
+		}
+		L_4:
+		switch(getToken())
+		{
+			default:
+				return node;	// accept state
+				break;
+		}
+	}
+	catch(ParseSyntaxError &e)
+	{
+		delete node;
+		throw e;
+	}
+	return NULL;
+}
+
+ParseNode *parse_ixRULE_machine_extra_tag_list()
+{
+	ParseNode *node = new ParseNode(RULE_ixmachine_extra_tag_list, getLine(), getFile());
+	try
+	{
+		goto L_0;
+		L_0:
+		switch(getToken())
+		{
+			case TOKEN_ixLITNUM:
+				addTerminal(node);
+				nextToken();
+				goto L_1;
+			default:
+				throw ParseSyntaxError();
+				break;
+		}
+		L_1:
+		switch(getToken())
+		{
+			case ',':
+				addTerminal(node);
+				nextToken();
+				goto L_2;
+			default:
+				return node;	// accept state
+				break;
+		}
+		L_2:
+		switch(getToken())
+		{
+			case TOKEN_ixLITNUM:
+				addTerminal(node);
+				nextToken();
+				goto L_3;
+			default:
+				throw ParseSyntaxError();
+				break;
+		}
+		L_3:
+		switch(getToken())
+		{
+			case ',':
+				addTerminal(node);
+				nextToken();
+				goto L_2;
 			default:
 				return node;	// accept state
 				break;
@@ -2783,6 +3072,10 @@ ParseNode *parse_ixRULE_emu_stmt()
 				addTerminal(node);
 				nextToken();
 				goto L_15;
+			case KEYWORD_ixtimes:	// "times"
+				addTerminal(node);
+				nextToken();
+				goto L_18;
 			default:
 				throw ParseSyntaxError();
 				break;
@@ -2794,6 +3087,10 @@ ParseNode *parse_ixRULE_emu_stmt()
 				addTerminal(node);
 				nextToken();
 				goto L_2;
+			case '(':
+				addTerminal(node);
+				nextToken();
+				goto L_25;
 			case '=':
 				addTerminal(node);
 				nextToken();
@@ -2988,6 +3285,197 @@ ParseNode *parse_ixRULE_emu_stmt()
 				break;
 		}
 		L_17:
+		switch(getToken())
+		{
+			default:
+				return node;	// accept state
+				break;
+		}
+		L_18:
+		switch(getToken())
+		{
+			// begin rule sizeref
+			case TOKEN_ixIDENT:
+			// end rule sizeref
+				addNonterminal(node, parse_ixRULE_sizeref());
+				goto L_19;
+			default:
+				throw ParseSyntaxError();
+				break;
+		}
+		L_19:
+		switch(getToken())
+		{
+			case TOKEN_ixIDENT:
+				addTerminal(node);
+				nextToken();
+				goto L_20;
+			default:
+				throw ParseSyntaxError();
+				break;
+		}
+		L_20:
+		switch(getToken())
+		{
+			case '=':
+				addTerminal(node);
+				nextToken();
+				goto L_21;
+			default:
+				throw ParseSyntaxError();
+				break;
+		}
+		L_21:
+		switch(getToken())
+		{
+			// begin rule rhs
+			case TOKEN_ixIDENT:
+			case TOKEN_ixLITNUM:
+			case '(':
+			case '-':
+			case '~':
+			case '!':
+			// end rule rhs
+				addNonterminal(node, parse_ixRULE_rhs());
+				goto L_22;
+			default:
+				throw ParseSyntaxError();
+				break;
+		}
+		L_22:
+		switch(getToken())
+		{
+			// begin rule emu_body
+			case KEYWORD_ixbegin:	// "begin"
+			// end rule emu_body
+				addNonterminal(node, parse_ixRULE_emu_body());
+				goto L_23;
+			default:
+				throw ParseSyntaxError();
+				break;
+		}
+		L_23:
+		switch(getToken())
+		{
+			case ';':
+				addTerminal(node);
+				nextToken();
+				goto L_24;
+			default:
+				throw ParseSyntaxError();
+				break;
+		}
+		L_24:
+		switch(getToken())
+		{
+			default:
+				return node;	// accept state
+				break;
+		}
+		L_25:
+		switch(getToken())
+		{
+			case TOKEN_ixLITNUM:
+				addTerminal(node);
+				nextToken();
+				goto L_26;
+			default:
+				throw ParseSyntaxError();
+				break;
+		}
+		L_26:
+		switch(getToken())
+		{
+			case ')':
+				addTerminal(node);
+				nextToken();
+				goto L_27;
+			default:
+				throw ParseSyntaxError();
+				break;
+		}
+		L_27:
+		switch(getToken())
+		{
+			case ':':
+				addTerminal(node);
+				nextToken();
+				goto L_28;
+			default:
+				throw ParseSyntaxError();
+				break;
+		}
+		L_28:
+		switch(getToken())
+		{
+			// begin rule emu_stmt
+			case TOKEN_ixIDENT:
+			case KEYWORD_ixexcept_assert:	// "except_assert"
+			case KEYWORD_ixreturn:	// "return"
+			case KEYWORD_ixtimes:	// "times"
+			// end rule emu_stmt
+				addNonterminal(node, parse_ixRULE_emu_stmt());
+				goto L_29;
+			default:
+				throw ParseSyntaxError();
+				break;
+		}
+		L_29:
+		switch(getToken())
+		{
+			default:
+				return node;	// accept state
+				break;
+		}
+	}
+	catch(ParseSyntaxError &e)
+	{
+		delete node;
+		throw e;
+	}
+	return NULL;
+}
+
+ParseNode *parse_ixRULE_sizeref()
+{
+	ParseNode *node = new ParseNode(RULE_ixsizeref, getLine(), getFile());
+	try
+	{
+		goto L_0;
+		L_0:
+		switch(getToken())
+		{
+			case TOKEN_ixIDENT:
+				addTerminal(node);
+				nextToken();
+				goto L_1;
+			default:
+				throw ParseSyntaxError();
+				break;
+		}
+		L_1:
+		switch(getToken())
+		{
+			case '*':
+				addTerminal(node);
+				nextToken();
+				goto L_2;
+			default:
+				return node;	// accept state
+				break;
+		}
+		L_2:
+		switch(getToken())
+		{
+			case TOKEN_ixLITNUM:
+				addTerminal(node);
+				nextToken();
+				goto L_3;
+			default:
+				throw ParseSyntaxError();
+				break;
+		}
+		L_3:
 		switch(getToken())
 		{
 			default:
@@ -3194,6 +3682,10 @@ ParseNode *parse_ixRULE_binary_op()
 				addTerminal(node);
 				nextToken();
 				goto L_20;
+			case '+':
+				addTerminal(node);
+				nextToken();
+				goto L_1;
 			case KEYWORD_ixsigned:	// "signed"
 				addTerminal(node);
 				nextToken();
@@ -3206,10 +3698,6 @@ ParseNode *parse_ixRULE_binary_op()
 				addTerminal(node);
 				nextToken();
 				goto L_2;
-			case '+':
-				addTerminal(node);
-				nextToken();
-				goto L_1;
 			case '|':
 				addTerminal(node);
 				nextToken();

@@ -75,6 +75,10 @@ groups begin
     	[The logical instructions perform basic AND, OR, XOR, and NOT logical operations on byte, word, and doubleword values];
     group control [Control Transfer Instructions],
     	[The control transfer instructions provide jump, conditional jump, loop, and call and return operations to control program flow];
+    group bitbyte [Bit and Byte Instructions],
+    	[Bit instructions test and modify individual bits];
+    group exchange [Exchange Instructions],
+    	[The exchange instructions swap the contents of one or more operands and, in some cases, perform additional operations];
 end groups;
 
 #------------------------------------------------------------------------------------------------------------------------------
@@ -310,7 +314,8 @@ end insn;
 
 insn bound(P x, P y) begin
     group control;
-    synopsis amd64 [Checks whether an array index (first operand) is within the bounds of an array (second operand).]
+    synopsis amd64 [Check Array Bound];
+    desc amd64 [Checks whether an array index (first operand) is within the bounds of an array (second operand).]
     	[The array index is a signed integer in the specified register];
     valid modes (no64);          # invalid opcode in 64-bit mode
     code 62 /r /mod:mem_only (mem&mem) <P=osz>;
@@ -318,4 +323,89 @@ insn bound(P x, P y) begin
         except_assert((x unsigned>= low(y)) && (x unsigned<= high(y)), 0x05);     # BOUND range-exceeded exception is 0x05
     end emu;
     verified emu [];
+end insn;
+
+insn bsf(P dest, P src) begin
+    group bitbyte;
+    synopsis amd64 [Bit Scan Forward];
+    desc amd64 [Searches the value in a register or a memory location (second operand) for the least-significant set bit];
+    valid modes (all);
+    code 0f bc /r (reg,reg/mem) <P=osz>;
+    emu begin
+        ZF = src == P(unsigned 0);
+        BIT done = ZF;
+        P tmp = src;
+        P result = undefined(dest);
+        times P i = (8 * sizeof(P)) begin
+            BIT tmp0 = (tmp & P(unsigned 1)) == P(unsigned 1);
+            result = ((!done && tmp0) ? i : result);
+            done = done || tmp0;
+            tmp = tmp unsigned>> 1;
+        end;
+
+        # AMD says dest is UNCHANGED if src is 0, so that is what we will do here.
+        # However, Intel says it's UNDEFINED in that case so we mark it as such if necessary !
+        dest = result;
+        
+        # Undefined output flags.
+        OF = undefined;
+        SF = undefined;
+        AF = undefined;
+        PF = undefined;
+        CF = undefined;
+    end emu;
+    verified emu [];
+    notes [Destination argument is undefined on output if source argument is 0 according to Intel.]
+    	[AMD reports the destination argument is left unmodified if source argument is 0.];
+end insn;
+
+insn bsr(P dest, P src) begin
+    group bitbyte;
+    synopsis amd64 [Bit Scan Reverse];
+    desc amd64 [Searches the value in a register or a memory location (second operand) for the most-significant set bit];
+    valid modes (all);
+    code 0f bd /r (reg,reg/mem) <P=osz>;
+    emu begin
+        ZF = src == P(unsigned 0);
+        BIT done = ZF;
+        P tmp = src;
+        P result = undefined(dest);
+        times P i = (8 * sizeof(P)) begin
+            BIT tmp0 = _sign(tmp);
+            result = ((!done && tmp0) ? (8 * sizeof(P)) - i : result);
+            done = done || tmp0;
+            tmp = tmp << 1;
+        end;
+
+        # AMD says dest is UNCHANGED if src is 0, so that is what we will do here.
+        # However, Intel says it's UNDEFINED in that case so we mark it as such if necessary !
+        dest = result;
+        
+        # Undefined output flags.
+        OF = undefined;
+        SF = undefined;
+        AF = undefined;
+        PF = undefined;
+        CF = undefined;
+    end emu;
+    verified emu [];
+    notes [Destination argument is undefined on output if source argument is 0 according to Intel.]
+    	[AMD reports the destination argument is left unmodified if source argument is 0.];
+end insn;
+
+insn bswap(P arg) begin
+    group exchange;
+    synopsis amd64 [];
+    desc amd64 [];
+    valid modes (all);
+    notes [Result is undefined if argument has a 16-bit size.]
+    	[In this case, we treat the argument as if it were 32 bits in size.];
+    code 0f c8 +r (reg) <P=osz(32,32,64)>;
+    emu(osz) begin
+    	osz(16): arg = undefined(combine32(bits(dest, 24, 8), bits(dest, 16, 8), bits(dest, 8, 8), bits(dest, 0, 8)));
+    	osz(32): arg = combine32(bits(dest, 24, 8), bits(dest, 16, 8), bits(dest, 8, 8), bits(dest, 0, 8));
+    	osz(64): arg = combine64(bits(dest, 56, 8), bits(dest, 48, 8), bits(dest, 40, 8), bits(dest, 32, 8),
+    	    bits(dest, 24, 8), bits(dest, 16, 8), bits(dest, 8, 8), bits(dest, 0, 8)
+        );
+    end emu;
 end insn;

@@ -47,6 +47,10 @@ item
 |   "emu" "function" IDENT IDENT '(' [ insn_arg_list ] ')' emu_body ';'
 ;
 
+emu_sens
+::= IDENT { ',' IDENT }
+;
+
 known_item
 ::= "modes" '=' '(' [ ident_list ] ')'
 ;
@@ -78,7 +82,7 @@ insn_body
 |   "desc" IDENT remarks ';'
 |   "valid" "modes" '(' ident_list ')' ';'
 |   "verified" "emu" SQUARE ';'
-|   "emu" emu_body "emu" ';'
+|   "emu" [ '(' emu_sens ')' ] emu_body "emu" ';'
 |   "code" machine_code ';'
 |   "valid" "modes" '(' ident_list ')' ';'
 |   "notes" remarks ';'
@@ -96,9 +100,14 @@ dis_stmt
 
 machine_code
 ::=	ascii { ascii }
-	{ '/' slash_code }
+	{ slash_code_item }
 	'(' machine_arg_list ')'
 	[ '<' machine_extra_list '>' ]
+;
+
+slash_code_item
+::= '/' slash_code
+|   '+' "r"
 ;
 
 slash_code
@@ -120,7 +129,15 @@ machine_extra_list
 ;
 
 machine_extra_item
-::= IDENT [ '=' ascii ]
+::= IDENT [ '=' machine_extra_asgn ]
+;
+
+machine_extra_asgn
+::= ascii [ '(' machine_extra_tag_list ')' ]
+;
+
+machine_extra_tag_list
+::= LITNUM { ',' LITNUM }
 ;
 
 emu_body ::= "begin" { emu_stmt } "end" ;
@@ -130,6 +147,12 @@ emu_stmt
 |   [ IDENT ] IDENT '=' "undefined" ';'
 |   "except_assert" '(' rhs ',' LITNUM ')' ';'      // generate the given exception if rhs is 0. rhs should be a BIT.
 |   "return" rhs ';'                                // allowed only in emu functions, not in the emu section of an insn
+|   "times" sizeref IDENT '=' rhs emu_body ';'
+|	IDENT '(' LITNUM ')' ':' emu_stmt
+;
+
+sizeref
+::= IDENT [ '*' LITNUM ]
 ;
 
 rhs

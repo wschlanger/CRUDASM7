@@ -26,6 +26,7 @@ virtual void initManualKeywords()
 	addManualKeyword("set", KEYWORD_ixset);
 	addManualKeyword("signed", KEYWORD_ixsigned);
 	addManualKeyword("synopsis", KEYWORD_ixsynopsis);
+	addManualKeyword("times", KEYWORD_ixtimes);
 	addManualKeyword("undefined", KEYWORD_ixundefined);
 	addManualKeyword("unsigned", KEYWORD_ixunsigned);
 	addManualKeyword("valid", KEYWORD_ixvalid);
