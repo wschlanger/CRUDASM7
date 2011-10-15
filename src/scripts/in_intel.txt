@@ -1,0 +1,282 @@
+#@+leo
+
+#@+node:0::@file C:\Users\User\Documents\code\coreasm\misc\general\in_intel.txt
+#@+body
+#@@language perl
+# Copyright (C) 2011 Willow Schlanger <wschlanger@gmail.com>.
+
+# The x86 CPU has 6 modes of operation.
+#
+# real mode : this is the mode we're in when the CPU powers on.
+# protected mode : same as real mode but cr0.pe=1 and rflags.vm=0
+# vm86 mode : same as protected mode except we have rflags.vm=1 instead
+# smm mode : same as real mode except it's initiated by an external pin;
+#            in this mode, all segments have 4GB limits and are read-write.
+#            the 'rsm' instruction is valid in this mode, and leaves smm.
+#
+# For the remaining two modes, you need to enable "long" mode. This is done
+# by setting bit 8 (Long Mode Enable) of the EFER MSR via RDMSR / WRMSR.
+# After long mode support has been enabled via MSRs, it is activated by entering
+# protected mode and enabling paging hardware (bits 31 and 0 of CR0 respectively).
+#
+# pmode64 : this is long mode with cs.L=1 (enables 64bit mode).
+# compat : this is long mode with cs.L=0. In this case, cs.D selects between
+#          16bit and 32bit compatibility modes, just as it does in regular
+#          protected mode.
+known modes = (real, protected, vm86, smm, pmode64, compat);
+
+# For the purpose of many instructions, real, smm, and vm86 modes behave the same.
+# Note that some instructions are "sensitive" to rflags.vm, however.
+set modes rmode = (real, smm, vm86);
+
+# For the purpose of many instructions, protected and compatibility modes are the same.
+set modes pmode = (protected, compat);
+
+# Long mode is pmode64 or compat.
+set modes long = (pmode64, compat);
+
+# Legacy mode is any mode besides long mode.
+set modes legacy = (real, protected, vm86, smm);
+
+# Some instructions are valid in all modes.
+set modes all = (legacy, long);
+
+groups begin
+    group decimal [Decimal Arithmetic Instructions],
+        [The decimal arithmetic instructions perform decimal arithmetic on binary coded decimal (BCD) data];
+    group arith [Binary Arithmetic Instructions],
+        [The binary arithmetic instructions perform basic binary integer computations on integers located in memory and/or the general purpose registers];
+end groups;
+
+insn aaa() begin
+    group decimal;
+    synopsis amd64 [ASCII Adjust After Addition];
+    desc amd64 [Create an unpacked BCD number (invalid in 64-bit mode)];
+    valid modes (rmode, pmode);          # invalid opcode in 64-bit mode
+    code 37 (void);
+    emu begin
+        AF = AF || ((AX & 0x000f) unsigned> 0x0009);
+        CF = AF;
+        AX = (AX + (AF ? 0x0106 : 0x0000)) & 0xff0f;
+        OF = undefined 0;
+        SF = undefined 0;
+        ZF = undefined _zero(AL);
+        PF = undefined _parity(AL);
+    end emu;
+    verified emu [10-14-2011];
+end insn;
+
+insn aad(B1 arg = 0x0a) begin
+    group decimal;
+    synopsis amd64 [ASCII Adjust Before Division];
+    desc amd64 [Adjust two BCD digits in AL and AH (invalid in 64-bit mode)];
+    valid modes (rmode, pmode);          # invalid opcode in 64-bit mode
+    notes [When assembling, the argument to AAD is optional; if missing, a default value of 0x0a is used.]
+        [When disassembling, we print e.g. "aad 0x01" for d5 01, but print only "aad" for d5 0a.];
+    code d5 (imm);
+    dis begin
+        write_insn_name();
+        if (imm32 != 0x0000000a) begin
+            write_space();
+            write_args();
+        end;
+    end dis;
+    emu begin
+        AL = (AH * arg) + AL;
+        AH = 0x00;
+        SF = _sign(AL);
+        ZF = _zero(AL);
+        PF = _parity(AL);
+        OF = undefined;
+        AF = undefined;
+        CF = undefined;
+    end emu;
+    verified emu [];
+end insn;
+
+insn aam(B1 arg = 0x0a) begin
+    group decimal;
+    synopsis amd64 [ASCII Adjust After Multiply];
+    desc amd64 [Create a pair of unpacked BCD values in AH and AL (invalid in 64-bit mode)];
+    valid modes (rmode, pmode);          # invalid opcode in 64-bit mode
+    notes [When assembling, the argument to AAM is optional; if missing, a default value of 0x0a is used.]
+        [When disassembling, we print e.g. "aam 0x01" for d4 01, but print only "aam" for d4 0a.];
+    code d4 (imm);
+    dis begin
+        write_insn_name();
+        if (imm32 != 0x0000000a) begin
+            write_space();
+            write_args();
+        end;
+    end dis;
+    emu begin
+        except_assert(arg != 0x00, 0x00);
+        B1 tmp = AL;
+        AH = tmp unsigned/ arg;
+        AL = tmp unsigned% arg;
+        SF = _sign(AL);
+        ZF = _zero(AL);
+        PF = _parity(AL);
+        OF = undefined;
+        AF = undefined;
+        CF = undefined;
+    end emu;
+    verified emu [];
+end insn;
+
+insn aas() begin
+    group decimal;
+    synopsis amd64 [ASCII Adjust After Subtraction];
+    desc amd64 [Create an unpacked BCD number from the contents of the AL register (invalid in 64-bit mode)];
+    valid modes (rmode, pmode);          # invalid opcode in 64-bit mode
+    code 3f (void);
+    emu begin
+        AF = AF || ((AX & 0x000f) unsigned> 0x0009);
+        CF = AF;
+        AX = (AX - (AF ? 0x0106 : 0x0000)) & 0xff0f;
+        OF = undefined 0;
+        SF = undefined 0;
+        ZF = undefined _zero(AL);
+        PF = undefined _parity(AL);
+    end emu;
+    verified emu [];
+end insn;
+
+# Functions with parameterized argument sizes are templates.
+
+emu function bit _add_cf(P x, P y)
+begin
+    return (x + y) unsigned< x;
+end;
+
+emu function bit _sub_of(P x, P y)
+begin
+    BIT less = x unsigned< y;
+	BIT sign = (x - y) signed< 0;
+	return less != sign;
+end;
+
+emu function bit _sub_cf(P x, P y)
+begin
+	return x unsigned< y;
+end;
+
+emu function bit _add_of(P x, P y)
+begin
+    return ((y != 0) && ((y << 1) == 0)) || _sub_of(x, -y);
+end;
+
+emu function bit _adc_af(P x, P y, BIT c)
+begin
+    B1 aa = B1(x) & 0x0f;               # B1(x) returns x truncated to a size of one byte
+    B1 bb = B1(y) & 0x0f;
+    B1 cc = B1(unsigned c);             # This notation means we zero-extend the bit 'c' to a byte
+    B1 d = (aa + bb) + cc;
+    return d unsigned> 0x0f;
+end;
+		
+emu function bit _adc_cf(P x, P y, BIT c)
+begin
+    P one = P(unsigned c);
+    return _add_cf(x, y) | _add_cf(a + b, one);
+end;
+
+emu function bit _adc_of(P x, P y, BIT c)
+begin
+    P one = P(unsigned c);
+	return _add_of(x, y) | _add_of(a + b, one);
+end;
+
+insn adc(P dest, P src) begin
+    group arith;
+    synopsis amd64 [Add with Carry];
+    desc amd64 [Adds the carry flag (CF), the value in a register or memory location (first operand), and an immediate]
+        [value or the value in a register or memory location (second operand), and stores the result in the first]
+        [operand location];
+    flags lockable;
+    valid modes (all);
+    code 80 /2 (reg/mem,imm) <P=B1>;
+    code 82 /2 (reg/mem,imm) <P=B1, asm_skip>;    # asm_skip means, when assembling, don't encode this form -- it's an alias we want to avoid
+    code 81 /2 (reg/mem,imm) <P=osz>;             # unless we use imm_disp64, if an imm arg is 64bits, it's sign-extended to 64bits from its encoded size (stored as 32 bits).
+    code 83 /2 (reg/mem,imm) <P=osz, imm_sx8>;    # imm_sx8 means any imm args with a size of osz are really encoded as a byte
+    code 10 /r (reg/mem,reg) <P=B1>;
+    code 12 /r (reg,reg/mem) <P=B1>;
+    code 11 /r (reg/mem,reg) <P=osz>;
+    code 13 /r (reg,reg/mem) <P=osz>;
+    code 14    (AL,imm) <P=B1>;
+    code 15    (rAX,imm) <P=osz>;
+    emu begin
+        BIT tmp = CF;
+        OF = _adc_of(dest, src, tmp);
+        AF = _adc_af(dest, src, tmp);
+        CF = _adc_cf(dest, src, tmp);
+        dest = (dest + src) + P(unsigned tmp);
+        SF = _sign(dest);
+        ZF = _zero(dest);
+        PF = _parity(dest);
+    end emu;
+    verified emu [];
+end insn;
+
+insn add(P dest, P src) begin
+    group arith;
+	synopsis amd64 [Signed or Unsigned Add];
+    desc amd64 [Adds the value in a register or memory location (first operand) and an immediate value or the value in]
+        [a register or memory location (second operand), and stores the result in the first operand location];
+	flags lockable;
+    valid modes (all);
+    code 80 /0 (reg/mem,imm) <P=B1>;
+    code 82 /0 (reg/mem,imm) <P=B1, asm_skip>;    # asm_skip means, when assembling, don't encode this form -- it's an alias we want to avoid
+    code 81 /0 (reg/mem,imm) <P=osz>;             # unless we use imm_disp64, if an imm arg is 64bits, it's sign-extended to 64bits from its encoded size (stored as 32 bits).
+    code 83 /0 (reg/mem,imm) <P=osz, imm_sx8>;    # imm_sx8 means any imm args with a size of osz are really encoded as a byte
+    code 00 /r (reg/mem,reg) <P=B1>;
+    code 02 /r (reg,reg/mem) <P=B1>;
+    code 01 /r (reg/mem,reg) <P=osz>;
+    code 03 /r (reg,reg/mem) <P=osz>;
+    code 04    (AL,imm) <P=B1>;
+    code 05    (rAX,imm) <P=osz>;
+    emu begin
+        OF = _add_of(dest, src);
+        AF = _add_af(dest, src);
+        CF = _add_cf(dest, src);
+        dest = dest + src;
+        SF = _sign(dest);
+        ZF = _zero(dest);
+        PF = _parity(dest);
+    end emu;
+    verified emu [];
+end insn;
+
+insn and(P dest, P src) begin
+    group logical;
+	synopsis amd64 [Logical AND];
+    desc amd64 [Performs a bitwise AND operation on the value in a register or memory location (first operand) and an]
+        [immediate value or the value in a register or memory location (second operand), and stores the result]
+		[in the first operand location];
+	flags lockable;
+    valid modes (all);
+    code 80 /4 (reg/mem,imm) <P=B1>;
+    code 82 /4 (reg/mem,imm) <P=B1, asm_skip>;    # asm_skip means, when assembling, don't encode this form -- it's an alias we want to avoid
+    code 81 /4 (reg/mem,imm) <P=osz>;             # unless we use imm_disp64, if an imm arg is 64bits, it's sign-extended to 64bits from its encoded size (stored as 32 bits).
+    code 83 /4 (reg/mem,imm) <P=osz, imm_sx8>;    # imm_sx8 means any imm args with a size of osz are really encoded as a byte
+    code 20 /r (reg/mem,reg) <P=B1>;
+    code 22 /r (reg,reg/mem) <P=B1>;
+    code 21 /r (reg/mem,reg) <P=osz>;
+    code 23 /r (reg,reg/mem) <P=osz>;
+    code 24    (AL,imm) <P=B1>;
+    code 25    (rAX,imm) <P=osz>;
+    emu begin
+        OF = 0;
+		CF = 0;
+        AF = undefined;
+        dest = dest & src;
+        SF = _sign(dest);
+        ZF = _zero(dest);
+        PF = _parity(dest);
+    end emu;
+    verified emu [];
+end insn;
+
+#@-body
+#@-node:0::@file C:\Users\User\Documents\code\coreasm\misc\general\in_intel.txt
+#@-leo
