@@ -87,6 +87,7 @@ insn_body
 |   "valid" "modes" '(' ident_list ')' ';'
 |   "notes" remarks ';'
 |   "dis" "begin" [ dis_body ] "end" "dis" ';'
+|	"asm" "names" SQUARE { ',' SQUARE } ';'
 ;
 
 dis_body

@@ -22,6 +22,54 @@
 #     blsic           [Isolate Lowest Set Bit and Complement] [This is a TBM instruction]
 #     blsmsk          [Mask From Lowest Set Bit] [This is a TBM instruction]
 #     blsr            [Reset Lowest Set Bit] [This is a TBM instruction]
+#
+# TO DO:
+#
+#   - add more instructions
+#   - when syntax is being parsed:
+#     - issue a warning if "known modes" introduces a duplicate mode name.
+#     - set modes foo = (bar1, bar2, ...):
+#       demand bar1, bar2, etc. are known modes at this point.
+#       demand the mode 'foo' is undefined.
+#     - xml:
+#       <ix_modes>
+#         <ix_mode_def def="mode:real" alias="false" />
+#         <ix_mode_def def="mode:protected" alias="false" />
+#         <ix_mode_def def="mode:all" alias="true">
+#           <ix_mode_ref_list>
+#             <ix_mode_ref ref="mode:real" />
+#             <ix_mode_ref ref="mode:protected" />
+#           </ix_mode_ref_list>
+#       </ix_modes>
+#     - parse groups. we will generate some xml eventually:
+#       <ix_groups>
+#         <ix_group def="group:decimal" title="Decimal Arithmetic Instructions" desc="The decimal arithmetic instructions perform decimal arithmetic..." />
+#       </ix_groups>
+#     - parse emu functions.
+#       - make sure the "times" keyword argument has for terminal operands only
+#         literal numbers, and the "sizeof" keyword. This permits unrolling
+#         of loops at decode time if required.
+#       - introduce "axiom" keyword to refer to basic functions. they may be refered to by name,
+#         or via prefix/infix notation. what about type casting? remember BIT and B<#>0> are reserved
+#         words and cannot be used as an identifier.
+#       - registers will need to be defined, so we can refer to them.
+#     - parse instructions.
+#       - This should be done after we've got a representative sample of instructions defined.
+#
+# NOTES:
+#
+#   - Literal numbers by themselves have a size of B8. For example, -1 means 0xffffffffffffffff.
+#     Hexadecimal numbers' size is determined by the number of hex digits (size must be a multiple of 8 bits).
+#     Hex numbers can have arbitrary size in bytes (any integer >= 1).
+#     You can assign a literal number directly to an identifier; in this case, the literal is cast automatically
+#     to the destination size, e.g. AX = 0 is the same as AX = B2(unsigned 0) where '0' is a B8. If 0 were
+#     >= 65536 an error would have been generated.
+#     When assigning a literal number to a BIT, the source is truncated to have BIT size, and an error is generated
+#     if its value is not 0 or 1.
+#     To create the 32-bit number 55, one can also do this: B4(unsigned 55). The 55 number is a B8
+#   - Our <<, signed>>, unsigned>> operators take two arguments of equal sizes. If the 2nd argument is unsigned>=
+#     the size of the first argument in bits, we get a 0 result. E.g. B2(unsigned 0xffff) >> B2(unsigned 16) yields
+#     0x0000.
 
 #------------------------------------------------------------------------------------------------------------------------------
 
@@ -187,13 +235,13 @@ end;
 emu function bit _sub_of(P x, P y)
 begin
     BIT less = x unsigned< y;
-	BIT sign = (x - y) signed< 0;
-	return less != sign;
+    BIT sign = (x - y) signed< 0;
+    return less != sign;
 end;
 
 emu function bit _sub_cf(P x, P y)
 begin
-	return x unsigned< y;
+    return x unsigned< y;
 end;
 
 emu function bit _add_of(P x, P y)
@@ -239,7 +287,7 @@ insn adc(P dest, P src) begin
     code 11 /r (reg/mem,reg) <P=osz>;
     code 13 /r (reg,reg/mem) <P=osz>;
     code 14    (AL,imm) <P=B1>;
-    code 15    (rAX,imm) <P=osz>;
+    code 15    (rAX,imm) <P=osz>;                 # rAX means AX, EAX, or RAX depending on the size of the argument (args have a type and size)
     emu begin
         BIT tmp = CF;
         OF = _adc_of(dest, src, tmp);
@@ -336,11 +384,11 @@ insn bsf(P dest, P src) begin
         BIT done = ZF;
         P tmp = src;
         P result = undefined(dest);
-        times P i = (8 * sizeof(P)) begin
+        times P i = (P(unsigned 8) * P(unsigned sizeof(P))) begin
             BIT tmp0 = (tmp & P(unsigned 1)) == P(unsigned 1);
             result = ((!done && tmp0) ? i : result);
             done = done || tmp0;
-            tmp = tmp unsigned>> 1;
+            tmp = tmp unsigned>> P(unsigned 1);
         end;
 
         # AMD says dest is UNCHANGED if src is 0, so that is what we will do here.
@@ -370,11 +418,12 @@ insn bsr(P dest, P src) begin
         BIT done = ZF;
         P tmp = src;
         P result = undefined(dest);
-        times P i = (8 * sizeof(P)) begin
+        P max = (P(unsigned 8) * P(unsigned sizeof(P)));
+        times P i = max begin
             BIT tmp0 = _sign(tmp);
-            result = ((!done && tmp0) ? (8 * sizeof(P)) - i : result);
+            result = ((!done && tmp0) ? max - i : result);
             done = done || tmp0;
-            tmp = tmp << 1;
+            tmp = tmp << P(unsigned 1);
         end;
 
         # AMD says dest is UNCHANGED if src is 0, so that is what we will do here.
@@ -395,17 +444,52 @@ end insn;
 
 insn bswap(P arg) begin
     group exchange;
-    synopsis amd64 [];
-    desc amd64 [];
+    synopsis amd64 [Byte Swap];
+    desc amd64 [Reverses the byte order of the specified register];
     valid modes (all);
     notes [Result is undefined if argument has a 16-bit size.]
     	[In this case, we treat the argument as if it were 32 bits in size.];
     code 0f c8 +r (reg) <P=osz(32,32,64)>;
     emu(osz) begin
-    	osz(16): arg = undefined(combine32(bits(dest, 24, 8), bits(dest, 16, 8), bits(dest, 8, 8), bits(dest, 0, 8)));
-    	osz(32): arg = combine32(bits(dest, 24, 8), bits(dest, 16, 8), bits(dest, 8, 8), bits(dest, 0, 8));
-    	osz(64): arg = combine64(bits(dest, 56, 8), bits(dest, 48, 8), bits(dest, 40, 8), bits(dest, 32, 8),
+    	osz(16): arg = undefined(combine4(bits(dest, 24, 8), bits(dest, 16, 8), bits(dest, 8, 8), bits(dest, 0, 8)));
+    	osz(32): arg = combine4(bits(dest, 24, 8), bits(dest, 16, 8), bits(dest, 8, 8), bits(dest, 0, 8));
+    	osz(64): arg = combine8(bits(dest, 56, 8), bits(dest, 48, 8), bits(dest, 40, 8), bits(dest, 32, 8),
     	    bits(dest, 24, 8), bits(dest, 16, 8), bits(dest, 8, 8), bits(dest, 0, 8)
         );
     end emu;
+    verified emu [];
 end insn;
+
+# We need to look at the emu section of an insn to see if a memory argument is read from, written to, or both.
+# We also need to determine HOW it is accessed. access_ea(x) just accesses the EA, itself [used by LEA]. We can
+# also have an access offset: access_offset(x, <offset>) is possible. <offset> must not be a function of memory.
+
+insn _bt_mem_reg(P x, P y) begin
+    group bitbyte;
+    synopsis amd64 [Bit Test];
+    desc amd64 [Copies a bit, specified by a bit index in a register or 8-bit immediate value (second operand),]
+    	[from a bit string (first operand), also called the bit base, to the carry flag (CF)];
+    valid modes (all);
+    asm names [bt];
+    code 0f a3 /r /mod:mem_only (mem,reg) <P=osz>;
+    emu(osz) begin
+    	osz(16): B8 byte_offset = 0x0002 * (y unsigned/ 0x0010);
+    	osz(16): B2 bit_mask = B2(unsigned 1) << (y unsigned% 0x0010);
+    	osz(32): B8 byte_offset = 0x00000004 * (y unsigned/ 0x00000020);
+    	osz(32): B4 bit_mask = B4(unsigned 1) << (y unsigned% 0x00000020);
+    	osz(64): B8 byte_offset = 0x0000000000000008 * (y unsigned/ 0x0000000000000040);
+    	osz(64): B8 bit_mask = 0x0000000000000008 * (y unsigned% 0x0000000000000040);
+        P tmp = access_offset(x, byte_offset);
+        BIT result = (tmp & bit_mask) != P(unsigned 0);
+        CF = result;
+        OF = undefined;
+        SF = undefined;
+        ZF = undefined;
+        AF = undefined;
+        PF = undefined;
+    end emu;
+    verified emu [];
+end insn;
+
+#"0f a3 /r rm,r"				! P=osz, Q=osz
+#"0f ba /4 rm,imm"			! P=osz, Q=B1

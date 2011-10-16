@@ -3,6 +3,7 @@
 
 virtual void initManualKeywords()
 {
+	addManualKeyword("asm", KEYWORD_ixasm);
 	addManualKeyword("begin", KEYWORD_ixbegin);
 	addManualKeyword("code", KEYWORD_ixcode);
 	addManualKeyword("desc", KEYWORD_ixdesc);
@@ -20,6 +21,7 @@ virtual void initManualKeywords()
 	addManualKeyword("mem_only", KEYWORD_ixmem_only);
 	addManualKeyword("mod", KEYWORD_ixmod);
 	addManualKeyword("modes", KEYWORD_ixmodes);
+	addManualKeyword("names", KEYWORD_ixnames);
 	addManualKeyword("notes", KEYWORD_ixnotes);
 	addManualKeyword("r", KEYWORD_ixr);
 	addManualKeyword("return", KEYWORD_ixreturn);
