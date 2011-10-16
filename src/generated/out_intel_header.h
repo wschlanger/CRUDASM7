@@ -65,7 +65,7 @@ enum
 	KEYWORD_ixdis = 0x20019,	// "dis"
 	KEYWORD_ixemu = 0x2000e,	// "emu"
 	KEYWORD_ixend = 0x2000c,	// "end"
-	KEYWORD_ixexcept_assert = 0x20021,	// "except_assert"
+	KEYWORD_ixexcept_assert = 0x20022,	// "except_assert"
 	KEYWORD_ixflags = 0x20012,	// "flags"
 	KEYWORD_ixfunction = 0x2000f,	// "function"
 	KEYWORD_ixgroup = 0x20011,	// "group"
@@ -79,16 +79,17 @@ enum
 	KEYWORD_ixnames = 0x2001b,	// "names"
 	KEYWORD_ixnotes = 0x20018,	// "notes"
 	KEYWORD_ixr = 0x2001d,	// "r"
-	KEYWORD_ixreturn = 0x20022,	// "return"
+	KEYWORD_ixreg_only = 0x20020,	// "reg_only"
+	KEYWORD_ixreturn = 0x20023,	// "return"
 	KEYWORD_ixset = 0x20009,	// "set"
-	KEYWORD_ixsigned = 0x20024,	// "signed"
+	KEYWORD_ixsigned = 0x20025,	// "signed"
 	KEYWORD_ixsynopsis = 0x20013,	// "synopsis"
-	KEYWORD_ixtimes = 0x20023,	// "times"
-	KEYWORD_ixundefined = 0x20020,	// "undefined"
-	KEYWORD_ixunsigned = 0x20025,	// "unsigned"
+	KEYWORD_ixtimes = 0x20024,	// "times"
+	KEYWORD_ixundefined = 0x20021,	// "undefined"
+	KEYWORD_ixunsigned = 0x20026,	// "unsigned"
 	KEYWORD_ixvalid = 0x20015,	// "valid"
 	KEYWORD_ixverified = 0x20016,	// "verified"
 	KEYWORD_ixOROR = 0x20004,	// "||"
-	KEYWORD__ixcount = 38
+	KEYWORD__ixcount = 39
 };
 

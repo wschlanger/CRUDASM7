@@ -2018,6 +2018,7 @@ ParseNode *parse_ixRULE_slash_code()
 		{
 			// begin rule mod_code
 			case KEYWORD_ixmem_only:	// "mem_only"
+			case KEYWORD_ixreg_only:	// "reg_only"
 			// end rule mod_code
 				addNonterminal(node, parse_ixRULE_mod_code());
 				goto L_5;
@@ -2054,11 +2055,22 @@ ParseNode *parse_ixRULE_mod_code()
 				addTerminal(node);
 				nextToken();
 				goto L_1;
+			case KEYWORD_ixreg_only:	// "reg_only"
+				addTerminal(node);
+				nextToken();
+				goto L_2;
 			default:
 				throw ParseSyntaxError();
 				break;
 		}
 		L_1:
+		switch(getToken())
+		{
+			default:
+				return node;	// accept state
+				break;
+		}
+		L_2:
 		switch(getToken())
 		{
 			default:

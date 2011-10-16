@@ -119,6 +119,7 @@ slash_code
 
 mod_code
 ::= "mem_only"
+|   "reg_only"
 ;
 
 machine_arg_list

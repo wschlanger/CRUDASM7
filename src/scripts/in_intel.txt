@@ -470,15 +470,20 @@ insn _bt_mem_reg(P x, P y) begin
     desc amd64 [Copies a bit, specified by a bit index in a register or 8-bit immediate value (second operand),]
     	[from a bit string (first operand), also called the bit base, to the carry flag (CF)];
     valid modes (all);
-    asm names [bt];
+    asm names [bt];      # since there is only one entry here, this is the asm name to use when disassembling.
+                         # if there are multiple names here, a 'dis' section must exist so we know what name to
+                         # use when disassembling. if asm names is omitted, the default is one entry, whose name
+                         # matches the instruction name.
+                         # given 2 separate instructions (i.e. _bt_mem_reg & _bt_other), they can share a common
+                         # asm name, such as "bt".
     code 0f a3 /r /mod:mem_only (mem,reg) <P=osz>;
     emu(osz) begin
-    	osz(16): B8 byte_offset = 0x0002 * (y unsigned/ 0x0010);
-    	osz(16): B2 bit_mask = B2(unsigned 1) << (y unsigned% 0x0010);
-    	osz(32): B8 byte_offset = 0x00000004 * (y unsigned/ 0x00000020);
-    	osz(32): B4 bit_mask = B4(unsigned 1) << (y unsigned% 0x00000020);
-    	osz(64): B8 byte_offset = 0x0000000000000008 * (y unsigned/ 0x0000000000000040);
-    	osz(64): B8 bit_mask = 0x0000000000000008 * (y unsigned% 0x0000000000000040);
+        osz(16): B8 byte_offset = 0x0002 * (y unsigned/ 0x0010);
+        osz(16): B2 bit_mask = B2(unsigned 1) << (y unsigned% 0x0010);
+        osz(32): B8 byte_offset = 0x00000004 * (y unsigned/ 0x00000020);
+        osz(32): B4 bit_mask = B4(unsigned 1) << (y unsigned% 0x00000020);
+        osz(64): B8 byte_offset = 0x0000000000000008 * (y unsigned/ 0x0000000000000040);
+        osz(64): B8 bit_mask = 0x0000000000000008 * (y unsigned% 0x0000000000000040);
         P tmp = access_offset(x, byte_offset);
         BIT result = (tmp & bit_mask) != P(unsigned 0);
         CF = result;
@@ -491,5 +496,30 @@ insn _bt_mem_reg(P x, P y) begin
     verified emu [];
 end insn;
 
-#"0f a3 /r rm,r"				! P=osz, Q=osz
-#"0f ba /4 rm,imm"			! P=osz, Q=B1
+insn _bt_other(P x, Q y) begin
+    group bitbyte;
+    synopsis amd64 [Bit Test];
+    desc amd64 [Copies a bit, specified by a bit index in a register or 8-bit immediate value (second operand),]
+    	[from a bit string (first operand), also called the bit base, to the carry flag (CF)];
+    valid modes (all);
+    asm names [bt];
+    code 0f a3 /r /mod:reg_only (reg_rm,reg) <P=osz,Q=osz>;     # reg_rm: same as reg, but value comes from r/m part of mod:reg/op:r/m byte.
+    code 0f ba /4 (reg/mem,imm) <P=osz,Q=B1>;
+    emu(osz) begin
+        osz(16): B2 index_masked = B2(unsigned y) & 0x000f;
+        osz(16): B2 bit_mask = B2(unsigned 1) << index_masked;
+        osz(32): B4 index_masked = B4(unsigned y) & 0x0000001f;
+        osz(32): B4 bit_mask = B4(unsigned 1) << index_masked;
+        osz(64): B8 index_masked = B8(unsigned y) & 0x000000000000003f;
+        osz(64): B8 bit_mask = B8(unsigned 1) << index_masked;
+        P tmp = x;
+        BIT result = (tmp & bit_mask) != P(unsigned 0);
+        CF = result;
+        OF = undefined;
+        SF = undefined;
+        ZF = undefined;
+        AF = undefined;
+        PF = undefined;
+    end emu;
+    verified emu [];
+end insn;
