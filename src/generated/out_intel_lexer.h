@@ -23,6 +23,8 @@ virtual void initManualKeywords()
 	addManualKeyword("modes", KEYWORD_ixmodes);
 	addManualKeyword("names", KEYWORD_ixnames);
 	addManualKeyword("notes", KEYWORD_ixnotes);
+	addManualKeyword("pop", KEYWORD_ixpop);
+	addManualKeyword("push", KEYWORD_ixpush);
 	addManualKeyword("r", KEYWORD_ixr);
 	addManualKeyword("reg_only", KEYWORD_ixreg_only);
 	addManualKeyword("return", KEYWORD_ixreturn);

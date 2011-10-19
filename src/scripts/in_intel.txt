@@ -122,13 +122,15 @@ groups begin
     group arith [Binary Arithmetic Instructions],
         [The binary arithmetic instructions perform basic binary integer computations on integers located in memory and/or the general purpose registers];
     group logical [Logical Instructions],
-    	[The logical instructions perform basic AND, OR, XOR, and NOT logical operations on byte, word, and doubleword values];
+        [The logical instructions perform basic AND, OR, XOR, and NOT logical operations on byte, word, and doubleword values];
     group control [Control Transfer Instructions],
-    	[The control transfer instructions provide jump, conditional jump, loop, and call and return operations to control program flow];
+        [The control transfer instructions provide jump, conditional jump, loop, and call and return operations to control program flow];
     group bitbyte [Bit and Byte Instructions],
-    	[Bit instructions test and modify individual bits];
+        [Bit instructions test and modify individual bits];
     group exchange [Exchange Instructions],
-    	[The exchange instructions swap the contents of one or more operands and, in some cases, perform additional operations];
+        [The exchange instructions swap the contents of one or more operands and, in some cases, perform additional operations];
+    group control [Control Transfer Instructions],
+        [Control-transfer instructions, or branches, are used to iterate through loops and move through conditional program logic];
 end groups;
 
 #------------------------------------------------------------------------------------------------------------------------------
@@ -764,7 +766,7 @@ end insn;
 #------------------------------------------------------------------------------------------------------------------------------
 
 insn _call(P x) begin
-    group decimal;
+    group control;
     asm names [call];
     synopsis amd64 [Near Procedure Call];
     desc amd64 [Pushes the offset of the next instruction onto the stack and branches to the target address];
