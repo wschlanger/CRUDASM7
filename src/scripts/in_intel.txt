@@ -306,7 +306,7 @@ insn add(P dest, P src) begin
     synopsis amd64 [Signed or Unsigned Add];
     desc amd64 [Adds the value in a register or memory location (first operand) and an immediate value or the value in]
         [a register or memory location (second operand), and stores the result in the first operand location];
-	flags lockable;
+    flags lockable;
     valid modes (all);
     code 80 /0 (reg/mem,imm) <P=B1>;
     code 82 /0 (reg/mem,imm) <P=B1, asm_skip>;    # asm_skip means, when assembling, don't encode this form -- it's an alias we want to avoid
@@ -514,6 +514,189 @@ insn _bt_other(P x, Q y) begin
         osz(64): B8 bit_mask = B8(unsigned 1) << index_masked;
         P tmp = x;
         BIT result = (tmp & bit_mask) != P(unsigned 0);
+        CF = result;
+        OF = undefined;
+        SF = undefined;
+        ZF = undefined;
+        AF = undefined;
+        PF = undefined;
+    end emu;
+    verified emu [];
+end insn;
+
+insn _btc_mem_reg(P x, P y) begin
+    group bitbyte;
+    synopsis amd64 [Bit Test and Complement];
+    desc amd64 [Copies a bit, specified by a bit index in a register or 8-bit immediate value (second operand),]
+        [from a bit string (first operand), also called the bit base, to the carry flag (CF)]
+        [and then complement (toggle) the bit in the bit string];
+    valid modes (all);
+    flags lockable;
+    asm names [btc];
+    code 0f bb /r /mod:mem_only (mem,reg) <P=osz>;
+    emu(osz) begin
+        osz(16): B8 byte_offset = 0x0002 * (y unsigned/ 0x0010);
+        osz(16): B2 bit_mask = B2(unsigned 1) << (y unsigned% 0x0010);
+        osz(32): B8 byte_offset = 0x00000004 * (y unsigned/ 0x00000020);
+        osz(32): B4 bit_mask = B4(unsigned 1) << (y unsigned% 0x00000020);
+        osz(64): B8 byte_offset = 0x0000000000000008 * (y unsigned/ 0x0000000000000040);
+        osz(64): B8 bit_mask = 0x0000000000000008 * (y unsigned% 0x0000000000000040);
+        P tmp = access_offset(x, byte_offset);
+        BIT result = (tmp & bit_mask) != P(unsigned 0);
+        x = x ^ bit_mask;
+        CF = result;
+        OF = undefined;
+        SF = undefined;
+        ZF = undefined;
+        AF = undefined;
+        PF = undefined;
+    end emu;
+    verified emu [];
+end insn;
+
+insn _btc_other(P x, Q y) begin
+    group bitbyte;
+    synopsis amd64 [Bit Test and Complement];
+    desc amd64 [Copies a bit, specified by a bit index in a register or 8-bit immediate value (second operand),]
+        [from a bit string (first operand), also called the bit base, to the carry flag (CF)]
+        [and then complement (toggle) the bit in the bit string];
+    valid modes (all);
+    flags lockable;
+    asm names [btc];
+    code 0f bb /r /mod:reg_only (reg_rm,reg) <P=osz,Q=osz>;     # reg_rm: same as reg, but value comes from r/m part of mod:reg/op:r/m byte.
+    code 0f ba /7 (reg/mem,imm) <P=osz,Q=B1>;
+    emu(osz) begin
+        osz(16): B2 index_masked = B2(unsigned y) & 0x000f;
+        osz(16): B2 bit_mask = B2(unsigned 1) << index_masked;
+        osz(32): B4 index_masked = B4(unsigned y) & 0x0000001f;
+        osz(32): B4 bit_mask = B4(unsigned 1) << index_masked;
+        osz(64): B8 index_masked = B8(unsigned y) & 0x000000000000003f;
+        osz(64): B8 bit_mask = B8(unsigned 1) << index_masked;
+        P tmp = x;
+        BIT result = (tmp & bit_mask) != P(unsigned 0);
+        x = x ^ bit_mask;
+        CF = result;
+        OF = undefined;
+        SF = undefined;
+        ZF = undefined;
+        AF = undefined;
+        PF = undefined;
+    end emu;
+    verified emu [];
+end insn;
+
+insn _btr_mem_reg(P x, P y) begin
+    group bitbyte;
+    synopsis amd64 [Bit Test and Reset];
+    desc amd64 [Copies a bit, specified by a bit index in a register or 8-bit immediate value (second operand),]
+        [from a bit string (first operand), also called the bit base, to the carry flag (CF)]
+        [and then clear the bit in the bit string to 0];
+    valid modes (all);
+    flags lockable;
+    asm names [btr];
+    code 0f b3 /r /mod:mem_only (mem,reg) <P=osz>;
+    emu(osz) begin
+        osz(16): B8 byte_offset = 0x0002 * (y unsigned/ 0x0010);
+        osz(16): B2 bit_mask = B2(unsigned 1) << (y unsigned% 0x0010);
+        osz(32): B8 byte_offset = 0x00000004 * (y unsigned/ 0x00000020);
+        osz(32): B4 bit_mask = B4(unsigned 1) << (y unsigned% 0x00000020);
+        osz(64): B8 byte_offset = 0x0000000000000008 * (y unsigned/ 0x0000000000000040);
+        osz(64): B8 bit_mask = 0x0000000000000008 * (y unsigned% 0x0000000000000040);
+        P tmp = access_offset(x, byte_offset);
+        BIT result = (tmp & bit_mask) != P(unsigned 0);
+        x = x & (~bit_mask);
+        CF = result;
+        OF = undefined;
+        SF = undefined;
+        ZF = undefined;
+        AF = undefined;
+        PF = undefined;
+    end emu;
+    verified emu [];
+end insn;
+
+insn _btr_other(P x, Q y) begin
+    group bitbyte;
+    synopsis amd64 [Bit Test and Reset];
+    desc amd64 [Copies a bit, specified by a bit index in a register or 8-bit immediate value (second operand),]
+        [from a bit string (first operand), also called the bit base, to the carry flag (CF)]
+        [and then clear the bit in the bit string to 0];
+    valid modes (all);
+    flags lockable;
+    asm names [btr];
+    code 0f b3 /r /mod:reg_only (reg_rm,reg) <P=osz,Q=osz>;     # reg_rm: same as reg, but value comes from r/m part of mod:reg/op:r/m byte.
+    code 0f ba /6 (reg/mem,imm) <P=osz,Q=B1>;
+    emu(osz) begin
+        osz(16): B2 index_masked = B2(unsigned y) & 0x000f;
+        osz(16): B2 bit_mask = B2(unsigned 1) << index_masked;
+        osz(32): B4 index_masked = B4(unsigned y) & 0x0000001f;
+        osz(32): B4 bit_mask = B4(unsigned 1) << index_masked;
+        osz(64): B8 index_masked = B8(unsigned y) & 0x000000000000003f;
+        osz(64): B8 bit_mask = B8(unsigned 1) << index_masked;
+        P tmp = x;
+        BIT result = (tmp & bit_mask) != P(unsigned 0);
+        x = x & (~bit_mask);
+        CF = result;
+        OF = undefined;
+        SF = undefined;
+        ZF = undefined;
+        AF = undefined;
+        PF = undefined;
+    end emu;
+    verified emu [];
+end insn;
+
+insn _bts_mem_reg(P x, P y) begin
+    group bitbyte;
+    synopsis amd64 [Bit Test and Set];
+    desc amd64 [Copies a bit, specified by a bit index in a register or 8-bit immediate value (second operand),]
+        [from a bit string (first operand), also called the bit base, to the carry flag (CF)]
+        [and then set the bit in the bit string to 1];
+    valid modes (all);
+    flags lockable;
+    asm names [bts];
+    code 0f ab /r /mod:mem_only (mem,reg) <P=osz>;
+    emu(osz) begin
+        osz(16): B8 byte_offset = 0x0002 * (y unsigned/ 0x0010);
+        osz(16): B2 bit_mask = B2(unsigned 1) << (y unsigned% 0x0010);
+        osz(32): B8 byte_offset = 0x00000004 * (y unsigned/ 0x00000020);
+        osz(32): B4 bit_mask = B4(unsigned 1) << (y unsigned% 0x00000020);
+        osz(64): B8 byte_offset = 0x0000000000000008 * (y unsigned/ 0x0000000000000040);
+        osz(64): B8 bit_mask = 0x0000000000000008 * (y unsigned% 0x0000000000000040);
+        P tmp = access_offset(x, byte_offset);
+        BIT result = (tmp & bit_mask) != P(unsigned 0);
+        x = x | bit_mask;
+        CF = result;
+        OF = undefined;
+        SF = undefined;
+        ZF = undefined;
+        AF = undefined;
+        PF = undefined;
+    end emu;
+    verified emu [];
+end insn;
+
+insn _bts_other(P x, Q y) begin
+    group bitbyte;
+    synopsis amd64 [Bit Test and Set];
+    desc amd64 [Copies a bit, specified by a bit index in a register or 8-bit immediate value (second operand),]
+        [from a bit string (first operand), also called the bit base, to the carry flag (CF)]
+        [and then clear the bit in the bit string to 0];
+    valid modes (all);
+    flags lockable;
+    asm names [bts];
+    code 0f ab /r /mod:reg_only (reg_rm,reg) <P=osz,Q=osz>;     # reg_rm: same as reg, but value comes from r/m part of mod:reg/op:r/m byte.
+    code 0f ba /5 (reg/mem,imm) <P=osz,Q=B1>;
+    emu(osz) begin
+        osz(16): B2 index_masked = B2(unsigned y) & 0x000f;
+        osz(16): B2 bit_mask = B2(unsigned 1) << index_masked;
+        osz(32): B4 index_masked = B4(unsigned y) & 0x0000001f;
+        osz(32): B4 bit_mask = B4(unsigned 1) << index_masked;
+        osz(64): B8 index_masked = B8(unsigned y) & 0x000000000000003f;
+        osz(64): B8 bit_mask = B8(unsigned 1) << index_masked;
+        P tmp = x;
+        BIT result = (tmp & bit_mask) != P(unsigned 0);
+        x = x | bit_mask;
         CF = result;
         OF = undefined;
         SF = undefined;
