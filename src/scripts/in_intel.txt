@@ -790,7 +790,7 @@ insn _call(P x) begin
 end insn;
 
 insn _calli(P x) begin
-    group decimal;
+    group control;
     asm names [call];
     synopsis amd64 [Near Procedure Call];
     desc amd64 [Pushes the offset of the next instruction onto the stack and branches to the target address];
