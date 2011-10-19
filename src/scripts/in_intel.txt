@@ -48,7 +48,9 @@
 #     - parse emu functions.
 #       - make sure the "times" keyword argument has for terminal operands only
 #         literal numbers, and the "sizeof" keyword. This permits unrolling
-#         of loops at decode time if required.
+#         of loops at decode time if required. {For ENTER, we may need to use an imm arg in a loop.}
+#         - note that sizeof() returns a B8 indicating the size of its argument in bytes. You can do
+#           sizeof(P) or sizeof(Q); even sizeof(B4) but not sizeof(BIT). Also cannot do sizeof(x).
 #       - introduce "axiom" keyword to refer to basic functions. they may be refered to by name,
 #         or via prefix/infix notation. what about type casting? remember BIT and B<#>0> are reserved
 #         words and cannot be used as an identifier.
@@ -681,7 +683,7 @@ insn _bts_other(P x, Q y) begin
     synopsis amd64 [Bit Test and Set];
     desc amd64 [Copies a bit, specified by a bit index in a register or 8-bit immediate value (second operand),]
         [from a bit string (first operand), also called the bit base, to the carry flag (CF)]
-        [and then clear the bit in the bit string to 0];
+        [and then set the bit in the bit string to 1];
     valid modes (all);
     flags lockable;
     asm names [bts];
@@ -703,6 +705,105 @@ insn _bts_other(P x, Q y) begin
         ZF = undefined;
         AF = undefined;
         PF = undefined;
+    end emu;
+    verified emu [];
+end insn;
+
+# Some more insn flags.
+# - has_cc
+#   low 4 bits of basecode is a condition code.
+#   the pseudo-variable "_cc" is a BIT that is 0 or 1 according to whether or not the condition is met.
+#   Prior to instruction execution we add a line such as BIT _cc = cond_nbe(CF, ZF).
+# - ctrlxfer
+#   This indicates the instruction writes to one of these:
+#   - RIP_ADD, RIP_SET
+#     Default values:
+#     - RIP_SET = in.RIP + insn.length
+#     - RIP_ADD = 0
+#     When the instruction completes we will set RIP to (RIP_SET + RIP_ADD) & RIP_MASK where the latter
+#     is determined by the opcode size; in 64bit mode, RIP_MASK is 0xffffffffffffffff unless op66 was used
+#     without rex.w (right? if rex.w is used don't we ignore opcode 0x66?) in which case it is 0xffff.
+# - stack
+#   This indicates the instruction contains at least one push or pop.
+#   Special considerations:
+#   - the flag "default64" means that by default in 64bit mode, the operand size (osz) is 64 bits. you can
+#     then use 0x66 to change it to 16bits, but there is no way to change it to 32 bits; presumably, rex.w
+#     is ignored here.
+#   - enter, leave
+#   - how to access the stack?
+#     push x;
+#     pop x;
+#     When in 64bit mode, presumably, RSP is always used for stack accesses. Otherwise, ss.d_b determines
+#     whether to use SP or ESP.
+#     'x' should have a size corresponding to osz. For some instructions osz is either 64bits or 16bits when
+#     in 64bit mode.
+#   - During the first pass through emu code, we take care of memory accesses -- where are they? Read/write?
+#     Whenever a PUSH or POP is done, we must know the input rSP as a function of the input rSP & rBP.
+#     Ex.:
+#     Some insn [leave] may do this:
+#       rSP = rBP;   # rSP/rBP size is determined by ss.d_b
+#       osz(16): pop BP;
+#       ...
+#     Here, we know we're pop'ing to BP/EBP/RBP (depending on osz) from [ss:in.rBP].
+#     The above behavior may be inexact; maybe db 0x66 / leave in 32-bit mode really does this:
+#       mov sp,bp
+#       pop bp
+#     we on the other hand would do this:
+#       mov esp,ebp
+#       pop bp
+#     in that case.
+#
+# More thoughts:
+# - how will we handle REP/REPcond ?
+#   There are repable and repcond flags.
+#   To repeat an instruction, we can do RIP_SET = RIP_CUR. Repeated instructions should be marked "ctrlxfer."
+#   - From an assembler perspective, _movsb and _rep_movsb are two different instructions. Note that f2/f3/f0
+#     are handled specially, so f2 f3 64 (movsb) is matches f3 (movsb) -- we demand prefixes be present, but
+#     not necesarilly in the same order. We will use f2 & f3 encodings, with one being marked asm_skip.
+
+#------------------------------------------------------------------------------------------------------------------------------
+
+insn _call(P x) begin
+    group decimal;
+    asm names [call];
+    synopsis amd64 [Near Procedure Call];
+    desc amd64 [Pushes the offset of the next instruction onto the stack and branches to the target address];
+    valid modes (all);
+    flags ctrlxfer, default64;               # in 64bit mode, osz defaults to 64bits; use 0x66 for 16 bits; no encoding for 32 bits.
+    code e8 (imm) <P=osz,imm_rel_branch>;    # imm arg with osz as size is a RELATIVE BRANCH TARGET. sx'd to 64bits in osz=64 bits mode.
+                                             # when we disassemble, relative branch targets have the insn length and decode offset added
+                                             # for disassembly purposes only. For emulation purposes, we get the relative value itself.
+                                             # ex.: JMP SHORT $  -> eb fe  -> in 64 bit mode, the argument is 0xfffffffffffffffe.
+    emu(osz) begin
+        push rIP;                            # the size of rIP is determined by the operand size.
+                                             # above expands into:
+                                             # osz(16): push IP;
+                                             # osz(32): push EIP;
+                                             # osz(64): push RIP;
+        osz(16): RIP_ADD = B8(unsigned x);
+        osz(32): RIP_ADD = B8(unsigned x);
+        osz(64): RIP_ADD = x;
+    end emu;
+    verified emu [];
+end insn;
+
+insn _calli(P x) begin
+    group decimal;
+    asm names [call];
+    synopsis amd64 [Near Procedure Call];
+    desc amd64 [Pushes the offset of the next instruction onto the stack and branches to the target address];
+    valid modes (all);
+    flags ctrlxfer, default64;               # in 64bit mode, osz defaults to 64bits; use 0x66 for 16 bits; no encoding for 32 bits.
+    code ff /2 (reg/mem) <P=osz>;
+    emu(osz) begin
+        push rIP;                            # the size of rIP is determined by the operand size.
+                                             # above expands into:
+                                             # osz(16): push IP;
+                                             # osz(32): push EIP;
+                                             # osz(64): push RIP;
+        osz(16): RIP_SET = B8(unsigned x);
+        osz(32): RIP_SET = B8(unsigned x);
+        osz(64): RIP_SET = x;
     end emu;
     verified emu [];
 end insn;

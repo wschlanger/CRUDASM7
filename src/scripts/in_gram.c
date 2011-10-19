@@ -151,6 +151,8 @@ emu_stmt
 |   "return" rhs ';'                                // allowed only in emu functions, not in the emu section of an insn
 |   "times" sizeref IDENT '=' rhs emu_body ';'
 |	IDENT '(' LITNUM ')' ':' emu_stmt
+|   "push" rhs ';'
+|   "pop" ascii ';'
 ;
 
 sizeref
