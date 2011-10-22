@@ -23,6 +23,11 @@
 #     blsmsk          [Mask From Lowest Set Bit] [This is a TBM instruction]
 #     blsr            [Reset Lowest Set Bit] [This is a TBM instruction]
 #
+#   The following instructions were found in the amd64 manual under general-purpose instructions, but I haven't verified Intel
+#   supports them, nor do I think they are used very often, so I have left them as todo's:
+#
+#     clflush
+#
 # TO DO:
 #
 #   - add more instructions
@@ -131,6 +136,11 @@ groups begin
         [The exchange instructions swap the contents of one or more operands and, in some cases, perform additional operations];
     group control [Control Transfer Instructions],
         [Control-transfer instructions, or branches, are used to iterate through loops and move through conditional program logic];
+    group data [Data Transfer Instructions],
+        [The data transfer instructions move data between memory and the general-purpose and segment registers;],
+        [they also perform specific operations such as conditional moves, stack access, and data conversion];
+    group flagctrl [Flag Control Instructions],
+        [The flag control instructions operate on the flags in the RFLAGS register];
 end groups;
 
 #------------------------------------------------------------------------------------------------------------------------------
@@ -763,8 +773,6 @@ end insn;
 #     are handled specially, so f2 f3 64 (movsb) is matches f3 (movsb) -- we demand prefixes be present, but
 #     not necesarilly in the same order. We will use f2 & f3 encodings, with one being marked asm_skip.
 
-#------------------------------------------------------------------------------------------------------------------------------
-
 insn _call(P x) begin
     group control;
     asm names [call];
@@ -806,6 +814,131 @@ insn _calli(P x) begin
         osz(16): RIP_SET = B8(unsigned x);
         osz(32): RIP_SET = B8(unsigned x);
         osz(64): RIP_SET = x;
+    end emu;
+    verified emu [];
+end insn;
+
+insn _callfd(P xofs, B2 xseg) begin
+    group control;
+    asm names [call];
+    synopsis amd64 [Far Procedure Call];
+    desc amd64 [Pushes procedure linking information onto the stack and branches to the target address, which contains]
+        [the first instruction of the called procedure.];
+    valid modes (all);
+    flags ctrlxfer, default64;               # in 64bit mode, osz defaults to 64bits; use 0x66 for 16 bits; no encoding for 32 bits.
+    code 9a (imm,imm) <P=osz,no64>;
+    emu(osz) begin
+        push P(unsigned CS);                 # push CS, zero-extended to operand size
+        push rIP;                            # the size of rIP is determined by the operand size.
+                                             # above expands into:
+                                             # osz(16): push IP;
+                                             # osz(32): push EIP;
+                                             # osz(64): push RIP;
+        CS = xseg;
+        osz(16): RIP_SET = B8(unsigned xofs);
+        osz(32): RIP_SET = B8(unsigned xofs);
+        osz(64): RIP_SET = xofs;
+    end emu;
+    verified emu [];
+    dis begin
+        write_insn_name();
+        write_space();
+        write_far_imm();
+    end dis;
+end insn;
+
+insn _callfi(P x) begin
+    group control;
+    asm names [call];
+    synopsis amd64 [Far Procedure Call];
+    desc amd64 [Pushes procedure linking information onto the stack and branches to the target address, which contains]
+        [the first instruction of the called procedure.];
+    valid modes (all);
+    flags ctrlxfer, ignore_rex_w;            # amd64 says "target offset can only be a 16- or 32-bit value"; offset is zero-extended to 64 bits.
+    code ff /3 /mod:mem_only (mem) <P=osz>;
+    emu(osz) begin
+        push P(unsigned CS);                 # push CS, zero-extended to operand size
+        push rIP;                            # the size of rIP is determined by the operand size.
+                                             # above expands into:
+                                             # osz(16): push IP;
+                                             # osz(32): push EIP;
+                                             # osz(64): push RIP;
+        CS = seg(x);
+        osz(16): RIP_SET = B8(unsigned ofs(x));
+        osz(32): RIP_SET = B8(unsigned ofs(x));
+        osz(64): RIP_SET = ofs(x);           # this cannot happen since we ignore rex.w, but is here for completeness.
+    end emu;
+    verified emu [];
+end insn;
+
+#------------------------------------------------------------------------------------------------------------------------------
+
+# sign-extend accumulator.
+insn _sxacc() begin
+    group data;
+    asm names [cbw], [cwde], [cdqe];
+    synopsis amd64 [Convert to Sign-Extended];
+    desc amd64 [Copies the sign bit in the AL or eAX register to the upper bits of the rAX register];
+    valid modes (all);
+    code 98 (void);
+    emu(osz) begin
+        osz(16): AX = B2(signed AL);
+        osz(32): EAX = B4(signed AX);
+        osz(64): RAX = B8(signed EAX);
+    end emu;
+    verified emu [];
+end insn;
+
+# sign-extend to rDX:rAX ("dax").
+insn _sxdax() begin
+    group data;
+    asm names [cwd], [cdq], [cqo];
+    synopsis amd64 [Convert to Sign-Extended];
+    desc amd64 [Copies the sign bit in the rAX register to all bits of the rDX register];
+    valid modes (all);
+    code 99 (void);
+    emu(osz) begin
+        osz(16): DX = (_sign(AX) ? 0xffff : 0x0000);
+        osz(32): EDX = (_sign(EAX) ? 0xffffffff : 0x00000000);
+        osz(64): RDX = (_sign(EAX) ? 0xffffffffffffffff : 0x0000000000000000);
+    end emu;
+    verified emu [];
+end insn;
+
+insn clc() begin
+    group flagctrl;
+    synopsis amd64 [Clear Carry Flag];
+    desc amd64 [Clears the carry flag (CF) in the rFLAGS register to zero];
+    valid modes (all);
+    code f8 (void);
+    emu begin
+        CF = 0;
+    end emu;
+    verified emu [];
+end insn;
+
+insn cld() begin
+    group flagctrl;
+    synopsis amd64 [Clear Direction Flag];
+    desc amd64 [Clears the direction flag (DF) in the rFLAGS register to zero];
+    valid modes (all);
+    code fc (void);
+    emu begin
+        DF = 0;
+    end emu;
+    verified emu [];
+end insn;
+
+# [+] todo: clflush
+
+insn cmc() begin
+    group flagctrl;
+    synopsis amd64 [Complement Direction Flag];
+    desc amd64 [Complements (toggles) the carry flag (CF) bit of the rFLAGS register];
+    valid modes (all);
+    code f5 (void);
+    emu begin
+        CF = !CF;
     end emu;
     verified emu [];
 end insn;

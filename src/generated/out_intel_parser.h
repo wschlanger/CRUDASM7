@@ -936,12 +936,42 @@ ParseNode *parse_ixRULE_group_def()
 			case ';':
 				addTerminal(node);
 				nextToken();
+				goto L_8;
+			case ',':
+				addTerminal(node);
+				nextToken();
 				goto L_6;
 			default:
 				throw ParseSyntaxError();
 				break;
 		}
 		L_6:
+		switch(getToken())
+		{
+			case TOKEN_ixSQUARE:
+				addTerminal(node);
+				nextToken();
+				goto L_7;
+			default:
+				throw ParseSyntaxError();
+				break;
+		}
+		L_7:
+		switch(getToken())
+		{
+			case ';':
+				addTerminal(node);
+				nextToken();
+				goto L_8;
+			case ',':
+				addTerminal(node);
+				nextToken();
+				goto L_6;
+			default:
+				throw ParseSyntaxError();
+				break;
+		}
+		L_8:
 		switch(getToken())
 		{
 			default:

@@ -64,7 +64,7 @@ ident_list
 ;
 
 group_def
-::= "group" IDENT SQUARE ',' SQUARE ';'
+::= "group" IDENT SQUARE ',' SQUARE { ',' SQUARE } ';'
 ;
 
 insn_arg_list

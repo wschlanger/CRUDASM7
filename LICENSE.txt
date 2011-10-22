@@ -1,5 +1,5 @@
 Everything here is hereby released under the New BSD license (shown below).
-For more information, please ontact: wschlanger@gmail.com
+For more information, please contact: wschlanger@gmail.com
 
 Copyright (c) 2008-2011, Willow Schlanger
 All rights reserved.
