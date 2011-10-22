@@ -141,6 +141,8 @@ groups begin
         [they also perform specific operations such as conditional moves, stack access, and data conversion];
     group flagctrl [Flag Control Instructions],
         [The flag control instructions operate on the flags in the RFLAGS register];
+    group string [String Instructions],
+        [The string instructions operate on strings of bytes, allowing them to be moved to and from memory];
 end groups;
 
 #------------------------------------------------------------------------------------------------------------------------------
@@ -871,8 +873,6 @@ insn _callfi(P x) begin
     verified emu [];
 end insn;
 
-#------------------------------------------------------------------------------------------------------------------------------
-
 # sign-extend accumulator.
 insn _sxacc() begin
     group data;
@@ -939,6 +939,206 @@ insn cmc() begin
     code f5 (void);
     emu begin
         CF = !CF;
+    end emu;
+    verified emu [];
+end insn;
+
+#------------------------------------------------------------------------------------------------------------------------------
+
+insn _cmov_cc(P x, P y) begin
+    group data;
+    synopsis amd64 [Conditional Move];
+    desc amd64 [Conditionally moves a value in memory or a general-purpose register into a register, depending a condition];
+    valid modes (all);
+    asm names [cmov$cc];  # $cc expands to ALL condition codes
+    code 0f 40 /r (reg,reg/mem) <P=osz, has_cc>;
+    dis begin
+        write([cmov]);
+        write_cc();
+        write_space();
+        write_args();
+    end dis;
+    notes [Our emulation of this instruction is inexact. Specifically, in 64-bit mode, the high 32 bits of the destination register]
+        [are supposed to be cleared if the destination register is 32 bits in size. This is strange, and Intel says it happens only]
+        [if the condition is false, whereas AMD says it happens "even if" the condition is false.];
+    emu begin
+        x = (_cc ? y : x);
+    end emu;
+    verified emu [];
+end insn;
+
+insn cmp(P dest, P src) begin
+    group arith;
+    synopsis amd64 [Compare];
+    desc amd64 [Compares the contents of a register or memory location (first operand) with an immediate value or the]
+        [contents of a register or memory location (second operand), and sets or clears the status flags in the]
+        [rFLAGS register to reflect the results];
+    valid modes (all);
+    code 80 /7 (reg/mem,imm) <P=B1>;
+    code 82 /7 (reg/mem,imm) <P=B1, asm_skip>;    # asm_skip means, when assembling, don't encode this form -- it's an alias we want to avoid
+    code 81 /7 (reg/mem,imm) <P=osz>;             # unless we use imm_disp64, if an imm arg is 64bits, it's sign-extended to 64bits from its encoded size (stored as 32 bits).
+    code 83 /7 (reg/mem,imm) <P=osz, imm_sx8>;    # imm_sx8 means any imm args with a size of osz are really encoded as a byte
+    code 38 /r (reg/mem,reg) <P=B1>;
+    code 3a /r (reg,reg/mem) <P=B1>;
+    code 39 /r (reg/mem,reg) <P=osz>;
+    code 3b /r (reg,reg/mem) <P=osz>;
+    code 3c    (AL,imm) <P=B1>;
+    code 3d    (rAX,imm) <P=osz>;
+    emu begin
+        OF = _sub_of(dest, src);
+        AF = _sub_af(dest, src);
+        CF = _sub_cf(dest, src);
+        P tmp = dest - src;
+        SF = _sign(tmp);
+        ZF = _zero(tmp);
+        PF = _parity(tmp);
+    end emu;
+    verified emu [];
+end insn;
+
+insn _cmps(P dest, P src) begin
+    group string;
+    synopsis amd64 [Compare Strings];
+    desc amd64 [Compares the bytes, words, doublewords, or quadwords pointed to by the rSI and rDI registers, sets or]
+        [clears the status flags of the rFLAGS register to reflect the results, and then increments or decrements]
+        [the rSI and rDI registers according to the state of the DF flag in the rFLAGS register];
+    valid modes (all);
+    code a6 (mem_implict_sts,mem_implict_std) <P=B1>;
+    code a7 (mem_implict_sts,mem_implict_std) <P=osz>;
+    dis begin
+        write_seg_reg();
+        write([cmps]);
+        write_size_suffix_argsize(0);
+    end dis;
+    emu(asz) begin
+	OF = _sub_of(dest, src);
+	AF = _sub_af(dest, src);
+	CF = _sub_cf(dest, src);
+	P tmp = dest - src;
+	SF = _sign(tmp);
+	ZF = _zero(tmp);
+	PF = _parity(tmp);
+	
+	asz(16): B2 count = B2(unsigned sizeof(P));
+	asz(16): count = (DF ? -count : count);
+	asz(16): SI = SI + count;
+	asz(16): DI = DI + count;
+	
+	asz(32): B4 count = B4(unsigned sizeof(P));
+	asz(32): count = (DF ? -count : count);
+	asz(32): ESI = ESI + count;
+	asz(32): EDI = EDI + count;
+	
+	asz(64): B8 count = B8(unsigned sizeof(P));
+	asz(64): count = (DF ? -count : count);
+	asz(64): RSI = RSI + count;
+	asz(64): RDI = RDI + count;
+    end emu;
+    verified emu [];
+end insn;
+
+insn _repz_cmps(P dest, P src) begin
+    group string;
+    synopsis amd64 [Compare Strings];
+    desc amd64 [Compares the bytes, words, doublewords, or quadwords pointed to by the rSI and rDI registers, sets or]
+        [clears the status flags of the rFLAGS register to reflect the results, and then increments or decrements]
+        [the rSI and rDI registers according to the state of the DF flag in the rFLAGS register];
+    valid modes (all);
+    flags ctrlxfer;
+    code f3 a6 (mem_implict_sts,mem_implict_std) <P=B1>;
+    code f3 a7 (mem_implict_sts,mem_implict_std) <P=osz>;
+    dis begin
+        write_seg_reg();
+        write_repz_space();
+        write([cmps]);
+        write_size_suffix_argsize(0);
+    end dis;
+    emu(asz) begin
+        asz(16): BIT cz = (CX == B2(unsigned 0));
+        asz(32): BIT cz = (ECX == B4(unsigned 0));
+        asz(64): BIT cz = (RCX == B8(unsigned 0));
+        
+	OF = (cz ? OF : _sub_of(dest, src));
+	AF = (cz ? AF : _sub_af(dest, src));
+	CF = (cz ? CF : _sub_cf(dest, src));
+	P tmp = dest - src;
+	SF = (cz ? SF : _sign(tmp));
+	ZF = (cz ? ZF : _zero(tmp));
+	PF = (cz ? PF : _parity(tmp));
+	
+	asz(16): B2 count = B2(unsigned sizeof(P));
+	asz(16): count = (DF ? -count : count);
+	asz(16): SI = SI + (cz ? B2(unsigned 0) : count);
+	asz(16): DI = DI + (cz ? B2(unsigned 0) : count);
+	asz(16): CX = CX - (cz ? B2(unsigned 0) : B2(unsigned 1));
+	
+	asz(32): B4 count = B4(unsigned sizeof(P));
+	asz(32): count = (DF ? -count : count);
+	asz(32): ESI = ESI + (cz ? B4(unsigned 0) : count);
+	asz(32): EDI = EDI + (cz ? B4(unsigned 0) : count);
+	asz(16): ECX = ECX - (cz ? B4(unsigned 0) : B4(unsigned 1));
+	
+	asz(64): B8 count = B8(unsigned sizeof(P));
+	asz(64): count = (DF ? -count : count);
+	asz(64): RSI = RSI + (cz ? B8(unsigned 0) : count);
+	asz(64): RDI = RDI + (cz ? B8(unsigned 0) : count);
+	asz(16): RCX = RCX - (cz ? B8(unsigned 0) : B8(unsigned 1));
+	
+	# repeat instruction if rCX != 0 on entry and ZF meets condition.
+	RIP_SET = ((!cz && ZF) ? RIP_CUR : RIP_SET);
+    end emu;
+    verified emu [];
+end insn;
+
+insn _repnz_cmps(P dest, P src) begin
+    group string;
+    synopsis amd64 [Compare Strings];
+    desc amd64 [Compares the bytes, words, doublewords, or quadwords pointed to by the rSI and rDI registers, sets or]
+        [clears the status flags of the rFLAGS register to reflect the results, and then increments or decrements]
+        [the rSI and rDI registers according to the state of the DF flag in the rFLAGS register];
+    valid modes (all);
+    flags ctrlxfer;
+    code f2 a6 (mem_implict_sts,mem_implict_std) <P=B1>;
+    code f2 a7 (mem_implict_sts,mem_implict_std) <P=osz>;
+    dis begin
+        write_seg_reg();
+        write_repnz_space();
+        write([cmps]);
+        write_size_suffix_argsize(0);
+    end dis;
+    emu(asz) begin
+        asz(16): BIT cz = (CX == B2(unsigned 0));
+        asz(32): BIT cz = (ECX == B4(unsigned 0));
+        asz(64): BIT cz = (RCX == B8(unsigned 0));
+        
+	OF = (cz ? OF : _sub_of(dest, src));
+	AF = (cz ? AF : _sub_af(dest, src));
+	CF = (cz ? CF : _sub_cf(dest, src));
+	P tmp = dest - src;
+	SF = (cz ? SF : _sign(tmp));
+	ZF = (cz ? ZF : _zero(tmp));
+	PF = (cz ? PF : _parity(tmp));
+	
+	asz(16): B2 count = B2(unsigned sizeof(P));
+	asz(16): count = (DF ? -count : count);
+	asz(16): SI = SI + (cz ? B2(unsigned 0) : count);
+	asz(16): DI = DI + (cz ? B2(unsigned 0) : count);
+	asz(16): CX = CX - (cz ? B2(unsigned 0) : B2(unsigned 1));
+	
+	asz(32): B4 count = B4(unsigned sizeof(P));
+	asz(32): count = (DF ? -count : count);
+	asz(32): ESI = ESI + (cz ? B4(unsigned 0) : count);
+	asz(32): EDI = EDI + (cz ? B4(unsigned 0) : count);
+	asz(16): ECX = ECX - (cz ? B4(unsigned 0) : B4(unsigned 1));
+	
+	asz(64): B8 count = B8(unsigned sizeof(P));
+	asz(64): count = (DF ? -count : count);
+	asz(64): RSI = RSI + (cz ? B8(unsigned 0) : count);
+	asz(64): RDI = RDI + (cz ? B8(unsigned 0) : count);
+	asz(16): RCX = RCX - (cz ? B8(unsigned 0) : B8(unsigned 1));
+	
+	# repeat instruction if rCX != 0 on entry and ZF meets condition.
+	RIP_SET = ((!cz && !ZF) ? RIP_CUR : RIP_SET);
     end emu;
     verified emu [];
 end insn;

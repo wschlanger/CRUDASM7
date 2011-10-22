@@ -2203,6 +2203,7 @@ ParseNode *parse_ixRULE_dis_stmt()
 			// begin rule rhs_list
 			case TOKEN_ixIDENT:
 			case TOKEN_ixLITNUM:
+			case TOKEN_ixSQUARE:
 			case '(':
 			case '-':
 			case '~':
@@ -2260,6 +2261,7 @@ ParseNode *parse_ixRULE_dis_stmt()
 			// begin rule rhs
 			case TOKEN_ixIDENT:
 			case TOKEN_ixLITNUM:
+			case TOKEN_ixSQUARE:
 			case '(':
 			case '-':
 			case '~':
@@ -2357,6 +2359,10 @@ ParseNode *parse_ixRULE_rhs()
 		L_0:
 		switch(getToken())
 		{
+			case TOKEN_ixSQUARE:
+				addTerminal(node);
+				nextToken();
+				goto L_14;
 			// begin rule rhs_terminal
 			case TOKEN_ixIDENT:
 			case TOKEN_ixLITNUM:
@@ -2423,6 +2429,7 @@ ParseNode *parse_ixRULE_rhs()
 			// begin rule rhs
 			case TOKEN_ixIDENT:
 			case TOKEN_ixLITNUM:
+			case TOKEN_ixSQUARE:
 			case '(':
 			case '-':
 			case '~':
@@ -2451,6 +2458,7 @@ ParseNode *parse_ixRULE_rhs()
 			// begin rule rhs_list
 			case TOKEN_ixIDENT:
 			case TOKEN_ixLITNUM:
+			case TOKEN_ixSQUARE:
 			case '(':
 			case '-':
 			case '~':
@@ -2498,6 +2506,7 @@ ParseNode *parse_ixRULE_rhs()
 			// begin rule rhs
 			case TOKEN_ixIDENT:
 			case TOKEN_ixLITNUM:
+			case TOKEN_ixSQUARE:
 			case '(':
 			case '-':
 			case '~':
@@ -2522,6 +2531,7 @@ ParseNode *parse_ixRULE_rhs()
 			// begin rule rhs_list
 			case TOKEN_ixIDENT:
 			case TOKEN_ixLITNUM:
+			case TOKEN_ixSQUARE:
 			case '(':
 			case '-':
 			case '~':
@@ -2574,6 +2584,7 @@ ParseNode *parse_ixRULE_rhs()
 			// begin rule rhs
 			case TOKEN_ixIDENT:
 			case TOKEN_ixLITNUM:
+			case TOKEN_ixSQUARE:
 			case '(':
 			case '-':
 			case '~':
@@ -2586,6 +2597,13 @@ ParseNode *parse_ixRULE_rhs()
 				break;
 		}
 		L_13:
+		switch(getToken())
+		{
+			default:
+				return node;	// accept state
+				break;
+		}
+		L_14:
 		switch(getToken())
 		{
 			default:
@@ -2613,6 +2631,7 @@ ParseNode *parse_ixRULE_rhs_list()
 			// begin rule rhs
 			case TOKEN_ixIDENT:
 			case TOKEN_ixLITNUM:
+			case TOKEN_ixSQUARE:
 			case '(':
 			case '-':
 			case '~':
@@ -2641,6 +2660,7 @@ ParseNode *parse_ixRULE_rhs_list()
 			// begin rule rhs
 			case TOKEN_ixIDENT:
 			case TOKEN_ixLITNUM:
+			case TOKEN_ixSQUARE:
 			case '(':
 			case '-':
 			case '~':
@@ -3246,6 +3266,7 @@ ParseNode *parse_ixRULE_emu_stmt()
 			// begin rule rhs
 			case TOKEN_ixIDENT:
 			case TOKEN_ixLITNUM:
+			case TOKEN_ixSQUARE:
 			case '(':
 			case '-':
 			case '~':
@@ -3271,6 +3292,7 @@ ParseNode *parse_ixRULE_emu_stmt()
 			// begin rule rhs
 			case TOKEN_ixIDENT:
 			case TOKEN_ixLITNUM:
+			case TOKEN_ixSQUARE:
 			case '(':
 			case '-':
 			case '~':
@@ -3324,6 +3346,7 @@ ParseNode *parse_ixRULE_emu_stmt()
 			// begin rule rhs
 			case TOKEN_ixIDENT:
 			case TOKEN_ixLITNUM:
+			case TOKEN_ixSQUARE:
 			case '(':
 			case '-':
 			case '~':
@@ -3392,6 +3415,7 @@ ParseNode *parse_ixRULE_emu_stmt()
 			// begin rule rhs
 			case TOKEN_ixIDENT:
 			case TOKEN_ixLITNUM:
+			case TOKEN_ixSQUARE:
 			case '(':
 			case '-':
 			case '~':
@@ -3461,6 +3485,7 @@ ParseNode *parse_ixRULE_emu_stmt()
 			// begin rule rhs
 			case TOKEN_ixIDENT:
 			case TOKEN_ixLITNUM:
+			case TOKEN_ixSQUARE:
 			case '(':
 			case '-':
 			case '~':
@@ -3565,6 +3590,7 @@ ParseNode *parse_ixRULE_emu_stmt()
 			// begin rule rhs
 			case TOKEN_ixIDENT:
 			case TOKEN_ixLITNUM:
+			case TOKEN_ixSQUARE:
 			case '(':
 			case '-':
 			case '~':
@@ -3734,6 +3760,7 @@ ParseNode *parse_ixRULE_rhs_terminal()
 			// begin rule rhs
 			case TOKEN_ixIDENT:
 			case TOKEN_ixLITNUM:
+			case TOKEN_ixSQUARE:
 			case '(':
 			case '-':
 			case '~':
@@ -4229,6 +4256,7 @@ ParseNode *parse_ixRULE_alternates()
 			// begin rule rhs
 			case TOKEN_ixIDENT:
 			case TOKEN_ixLITNUM:
+			case TOKEN_ixSQUARE:
 			case '(':
 			case '-':
 			case '~':
@@ -4257,6 +4285,7 @@ ParseNode *parse_ixRULE_alternates()
 			// begin rule rhs
 			case TOKEN_ixIDENT:
 			case TOKEN_ixLITNUM:
+			case TOKEN_ixSQUARE:
 			case '(':
 			case '-':
 			case '~':

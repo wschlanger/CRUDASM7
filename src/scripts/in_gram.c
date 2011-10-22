@@ -163,6 +163,7 @@ rhs
 ::= [ rhs_prefix ] rhs_terminal [ binary_op rhs ]
 |   [ rhs_prefix ] rhs_terminal '(' ')' [ binary_op rhs ]
 |   [ rhs_prefix ] rhs_terminal '(' [ signed_cast ] rhs_list ')' [ binary_op rhs ]
+|   SQUARE
 ;
 
 // This is used for e.g. P(signed x) or B4(unsigned y)
